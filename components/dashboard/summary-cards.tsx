@@ -17,6 +17,7 @@ interface SummaryCardsProps {
   creditUsage: number
   debitUsage: number
   voucherUsage: number
+  showValues: boolean
 }
 
 export function SummaryCards({
@@ -25,8 +26,11 @@ export function SummaryCards({
   creditUsage,
   debitUsage,
   voucherUsage,
+  showValues,
 }: SummaryCardsProps) {
   const remaining = totalIncome - totalExpenses
+  const renderValue = (value: number) =>
+    showValues ? formatCurrency(value) : "R$ ••••"
 
   const cards = [
     {
@@ -87,7 +91,7 @@ export function SummaryCards({
           </CardHeader>
           <CardContent>
             <p className={`text-2xl font-bold ${card.color}`}>
-              {formatCurrency(card.value)}
+              {renderValue(card.value)}
             </p>
           </CardContent>
         </Card>

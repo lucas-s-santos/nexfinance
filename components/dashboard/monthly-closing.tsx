@@ -15,12 +15,14 @@ interface MonthlyClosingProps {
   totalIncome: number
   totalExpenses: number
   bills: Bill[]
+  showValues: boolean
 }
 
 export function MonthlyClosing({
   totalIncome,
   totalExpenses,
   bills,
+  showValues,
 }: MonthlyClosingProps) {
   const currentBalance = totalIncome - totalExpenses
   const unpaidBillsTotal = bills
@@ -31,6 +33,8 @@ export function MonthlyClosing({
     .filter((b) => b.is_paid)
     .reduce((sum, b) => sum + Number(b.value), 0)
   const totalBills = paidBillsTotal + unpaidBillsTotal
+  const renderValue = (value: number) =>
+    showValues ? formatCurrency(value) : "R$ ••••"
 
   return (
     <Card>
@@ -49,7 +53,7 @@ export function MonthlyClosing({
               Receitas
             </div>
             <p className="mt-1 text-sm font-bold text-success">
-              {formatCurrency(totalIncome)}
+              {renderValue(totalIncome)}
             </p>
           </div>
           <div className="text-center">
@@ -58,7 +62,7 @@ export function MonthlyClosing({
               Despesas
             </div>
             <p className="mt-1 text-sm font-bold text-destructive">
-              {formatCurrency(totalExpenses)}
+              {renderValue(totalExpenses)}
             </p>
           </div>
           <div className="text-center">
@@ -68,7 +72,7 @@ export function MonthlyClosing({
                 currentBalance >= 0 ? "text-success" : "text-destructive"
               }`}
             >
-              {formatCurrency(currentBalance)}
+              {renderValue(currentBalance)}
             </p>
           </div>
         </div>
@@ -80,7 +84,7 @@ export function MonthlyClosing({
               Contas Pendentes
             </p>
             <p className="text-lg font-bold text-warning">
-              {formatCurrency(unpaidBillsTotal)}
+              {renderValue(unpaidBillsTotal)}
             </p>
             <p className="text-xs text-muted-foreground">
               {bills.filter((b) => !b.is_paid).length} conta(s) a pagar
@@ -96,7 +100,7 @@ export function MonthlyClosing({
                 projectedBalance >= 0 ? "text-success" : "text-destructive"
               }`}
             >
-              {formatCurrency(projectedBalance)}
+              {renderValue(projectedBalance)}
             </p>
             <p className="text-xs text-muted-foreground">
               Saldo previsto do mes
@@ -108,7 +112,7 @@ export function MonthlyClosing({
         {totalBills > 0 && (
           <div>
             <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>Contas pagas: {formatCurrency(paidBillsTotal)}</span>
+              <span>Contas pagas: {renderValue(paidBillsTotal)}</span>
               <span>{((paidBillsTotal / totalBills) * 100).toFixed(0)}%</span>
             </div>
             <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
