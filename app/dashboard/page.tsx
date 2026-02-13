@@ -234,9 +234,17 @@ export default function DashboardPage() {
   const debitUsage = (expenses ?? [])
     .filter((e) => e.payment_method === "debit")
     .reduce((sum, e) => sum + Number(e.value), 0)
-  const voucherUsage = (expenses ?? [])
-    .filter((e) => e.payment_method === "voucher")
-    .reduce((sum, e) => sum + Number(e.value), 0)
+  const isSamePeriod = (date: string) => {
+    const [y, m] = date.split("-").map(Number)
+    return y === year && m === month
+  }
+  const investmentUsage = (reserves ?? [])
+    .filter((item) =>
+      (item.type === "investment" || item.type === "market") &&
+      isSamePeriod(item.date)
+    )
+    .reduce((sum, item) => sum + Number(item.value), 0)
+
 
   return (
     <div className="flex flex-col gap-6">
@@ -281,7 +289,7 @@ export default function DashboardPage() {
             totalExpenses={totalExpenses}
             creditUsage={creditUsage}
             debitUsage={debitUsage}
-            voucherUsage={voucherUsage}
+            investmentUsage={investmentUsage}
             showValues={showValues}
           />
           <MonthlyClosing

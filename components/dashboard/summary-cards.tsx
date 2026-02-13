@@ -8,7 +8,7 @@ import {
   Wallet,
   CreditCard,
   Banknote,
-  UtensilsCrossed,
+  PiggyBank,
 } from "lucide-react"
 
 interface SummaryCardsProps {
@@ -16,7 +16,7 @@ interface SummaryCardsProps {
   totalExpenses: number
   creditUsage: number
   debitUsage: number
-  voucherUsage: number
+  investmentUsage: number
   showValues: boolean
 }
 
@@ -25,7 +25,7 @@ export function SummaryCards({
   totalExpenses,
   creditUsage,
   debitUsage,
-  voucherUsage,
+  investmentUsage,
   showValues,
 }: SummaryCardsProps) {
   const remaining = totalIncome - totalExpenses
@@ -69,11 +69,11 @@ export function SummaryCards({
       bgColor: "bg-primary/10" as const,
     },
     {
-      title: "Vale Refeicao",
-      value: voucherUsage,
-      icon: UtensilsCrossed,
-      color: "text-warning" as const,
-      bgColor: "bg-warning/10" as const,
+      title: "Investimentos no mes",
+      value: investmentUsage,
+      icon: PiggyBank,
+      color: "text-emerald-600" as const,
+      bgColor: "bg-emerald-500/10" as const,
     },
   ]
 

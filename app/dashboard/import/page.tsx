@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useCategories } from "@/lib/use-financial-data"
 import { createClient } from "@/lib/supabase/client"
 import { parseOfx } from "@/lib/ofx"
 import { parseCsv } from "@/lib/csv"
@@ -9,6 +8,7 @@ import { parseMoneyToNumber } from "@/lib/money"
 import { formatCurrency, formatDate } from "@/lib/format"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -52,7 +52,6 @@ type CsvColumnMap = {
 }
 
 export default function ImportPage() {
-  const { data: categories } = useCategories()
   const [transactions, setTransactions] = useState<ImportTransaction[]>([])
   const [fileName, setFileName] = useState("")
   const [fileType, setFileType] = useState<"ofx" | "csv" | null>(null)
@@ -64,15 +63,20 @@ export default function ImportPage() {
     memo: "",
     type: "",
   })
-  const [categoryOverrides, setCategoryOverrides] = useState<Record<string, string>>({})
+  const [descriptionOverrides, setDescriptionOverrides] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
-  const [incomeCategory, setIncomeCategory] = useState("")
-  const [expenseCategory, setExpenseCategory] = useState("")
   const [ignoreTransfers, setIgnoreTransfers] = useState(false)
   const [autoDetectInvestments, setAutoDetectInvestments] = useState(true)
   const [expensePaymentMethod] = useState("debit")
   const [showMapping, setShowMapping] = useState(false)
   const [showAll, setShowAll] = useState(false)
+  const [previewSearch, setPreviewSearch] = useState("")
+  const [previewType, setPreviewType] = useState("all")
+  const [previewStatus, setPreviewStatus] = useState("all")
+  const [previewDateFrom, setPreviewDateFrom] = useState("")
+  const [previewDateTo, setPreviewDateTo] = useState("")
+  const [previewMinValue, setPreviewMinValue] = useState("")
+  const [previewMaxValue, setPreviewMaxValue] = useState("")
 
   const investmentKeywords = [
     "aplicacao rdb",
@@ -114,12 +118,11 @@ export default function ImportPage() {
     "transferencia recebida",
   ]
 
-  const incomeCategories = (categories ?? []).filter(
-    (cat) => cat.type === "income"
-  )
-  const expenseCategories = (categories ?? []).filter(
-    (cat) => cat.type === "expense"
-  )
+  const getTxDescription = (tx: ImportTransaction) => {
+    const override = descriptionOverrides[tx.id]
+    const cleaned = override?.trim()
+    return cleaned ? cleaned : tx.name
+  }
 
   const detectMapping = (headers: string[]) => {
     const normalized = headers.map((h) => h.toLowerCase())
@@ -212,6 +215,7 @@ export default function ImportPage() {
     const text = await file.text()
     const extension = file.name.split(".").pop()?.toLowerCase()
     setFileName(file.name)
+    setDescriptionOverrides({})
 
     if (extension === "csv") {
       const parsed = parseCsv(text)
@@ -238,11 +242,14 @@ export default function ImportPage() {
     )
   }
 
-  const normalizeDescription = (tx: ImportTransaction) =>
-    `${tx.name} ${tx.memo ?? ""}`
+  const normalizeText = (value: string) =>
+    value
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
+
+  const normalizeDescription = (tx: ImportTransaction) =>
+    normalizeText(`${getTxDescription(tx)} ${tx.memo ?? ""}`)
 
   const hasKeyword = (normalized: string, keywords: string[]) =>
     keywords.some((keyword) => normalized.includes(keyword))
@@ -285,9 +292,52 @@ export default function ImportPage() {
         type,
       }
     })
-  }, [autoDetectInvestments, ignoreTransfers, transactions])
+  }, [autoDetectInvestments, descriptionOverrides, ignoreTransfers, transactions])
 
-  const summary = useMemo(() => {
+  const filteredRows = useMemo(() => {
+    const query = normalizeText(previewSearch.trim())
+    const resolveDescription = (tx: ImportTransaction) => {
+      const override = descriptionOverrides[tx.id]
+      const cleaned = override?.trim()
+      return cleaned ? cleaned : tx.name
+    }
+
+    const matchesType = (type: string) => {
+      if (previewType === "all") return true
+      if (previewType === "income") return type === "income"
+      if (previewType === "expense") return type === "expense"
+      if (previewType === "transfer") return type === "transfer_in" || type === "transfer_out"
+      if (previewType === "investment") return type === "investment_out" || type === "investment_income"
+      if (previewType === "market") return type === "market_out" || type === "market_income"
+      return true
+    }
+
+    return transactionRows.filter((row) => {
+      if (!matchesType(row.type)) return false
+      if (previewStatus === "ignored" && !row.skipped) return false
+      if (previewStatus === "active" && row.skipped) return false
+      if (previewDateFrom && row.tx.date < previewDateFrom) return false
+      if (previewDateTo && row.tx.date > previewDateTo) return false
+      const absAmount = Math.abs(row.tx.amount)
+      if (previewMinValue && absAmount < Number(previewMinValue)) return false
+      if (previewMaxValue && absAmount > Number(previewMaxValue)) return false
+      if (!query) return true
+      const text = normalizeText(`${resolveDescription(row.tx)} ${row.tx.memo ?? ""}`)
+      return text.includes(query)
+    })
+  }, [
+    descriptionOverrides,
+    previewDateFrom,
+    previewDateTo,
+    previewMaxValue,
+    previewMinValue,
+    previewSearch,
+    previewStatus,
+    previewType,
+    transactionRows,
+  ])
+
+  const previewSummary = useMemo(() => {
     let income = 0
     let expense = 0
     let investment = 0
@@ -297,7 +347,7 @@ export default function ImportPage() {
     let investmentIncome = 0
     let skipped = 0
 
-    for (const row of transactionRows) {
+    for (const row of filteredRows) {
       if (row.skipped) {
         skipped += 1
         continue
@@ -329,17 +379,37 @@ export default function ImportPage() {
       skipped,
       total: income + expense + investment + market,
     }
-  }, [transactionRows])
+  }, [filteredRows])
 
   const previewRows = useMemo(() => {
-    if (showAll) return transactionRows
-    return transactionRows.slice(0, 8)
-  }, [showAll, transactionRows])
+    if (showAll) return filteredRows
+    return filteredRows.slice(0, 8)
+  }, [filteredRows, showAll])
+
+  const hasActiveFilters =
+    previewSearch.trim() !== "" ||
+    previewType !== "all" ||
+    previewStatus !== "all" ||
+    previewDateFrom !== "" ||
+    previewDateTo !== "" ||
+    previewMinValue !== "" ||
+    previewMaxValue !== ""
+
+  const getTypeLabel = (type: string, amount: number) => {
+    if (type === "investment_out") return "Investimento"
+    if (type === "market_out") return "Carteira"
+    if (type === "investment_income" || type === "market_income") return "Receb. investimento"
+    if (type === "transfer_in") return "Transf. recebida"
+    if (type === "transfer_out") return "Transf. enviada"
+    return amount >= 0 ? "Receita" : "Despesa"
+  }
+
 
   useEffect(() => {
     if (!csvData || fileType !== "csv") return
     const built = buildTransactionsFromCsv(csvData, csvMap)
     setTransactions(built)
+    setDescriptionOverrides({})
   }, [csvData, csvMap, fileType])
 
   const ensurePeriod = async (userId: string, date: string) => {
@@ -385,11 +455,12 @@ export default function ImportPage() {
       const tx = row.tx
       const periodId = await ensurePeriod(user.id, tx.date)
       if (!periodId) continue
+      const resolvedName = getTxDescription(tx)
 
       if (row.type === "investment_out" || row.type === "market_out") {
         await supabase.from("reserves_investments").insert({
           user_id: user.id,
-          name: tx.name,
+          name: resolvedName,
           value: Math.abs(tx.amount),
           date: tx.date,
           type: row.type === "market_out" ? "market" : "investment",
@@ -397,33 +468,29 @@ export default function ImportPage() {
         continue
       }
 
-      const overrideCategory = categoryOverrides[row.id]
       const isIncomeType =
         row.type === "income" ||
         row.type === "transfer_in" ||
         row.type === "investment_income" ||
         row.type === "market_income"
-      const fallbackCategory = isIncomeType ? incomeCategory : expenseCategory
-      const resolvedCategory = overrideCategory || fallbackCategory
-      const category_id = resolvedCategory && resolvedCategory !== "none" ? resolvedCategory : null
 
       if (isIncomeType) {
         await supabase.from("incomes").insert({
           user_id: user.id,
           period_id: periodId,
-          name: tx.name,
+          name: resolvedName,
           value: tx.amount,
           date: tx.date,
-          category_id,
+          category_id: null,
         })
       } else {
         await supabase.from("expenses").insert({
           user_id: user.id,
           period_id: periodId,
-          name: tx.name,
+          name: resolvedName,
           value: Math.abs(tx.amount),
           date: tx.date,
-          category_id,
+          category_id: null,
           payment_method: resolveExpensePaymentMethod(tx, row.type),
           is_essential: false,
         })
@@ -454,11 +521,14 @@ export default function ImportPage() {
                 const file = e.target.files?.[0]
                 if (file) handleFile(file)
               }}
+              className="w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-2 file:text-xs file:font-semibold"
             />
             {fileName && (
-              <p className="text-xs text-muted-foreground">
-                {fileName} • {transactions.length} transacao(oes)
-              </p>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>{fileName}</span>
+                <Badge variant="outline">{transactions.length} transacao(oes)</Badge>
+                {fileType && <Badge variant="secondary">{fileType.toUpperCase()}</Badge>}
+              </div>
             )}
           </div>
 
@@ -470,9 +540,7 @@ export default function ImportPage() {
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent className="mt-3 rounded-lg border border-border bg-muted/30 p-4">
-                <p className="text-sm font-semibold text-foreground">
-                  Mapeamento de colunas
-                </p>
+                <p className="text-sm font-semibold text-foreground">Mapeamento de colunas</p>
                 <p className="text-xs text-muted-foreground">
                   Selecione data, valor e descricao. Os campos opcionais ajudam na classificacao.
                 </p>
@@ -563,40 +631,6 @@ export default function ImportPage() {
           )}
 
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="grid gap-2">
-              <Label>Categoria padrao para receitas</Label>
-              <Select value={incomeCategory || "none"} onValueChange={(v) => setIncomeCategory(v === "none" ? "" : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sem categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sem categoria</SelectItem>
-                  {incomeCategories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label>Categoria padrao para despesas</Label>
-              <Select value={expenseCategory || "none"} onValueChange={(v) => setExpenseCategory(v === "none" ? "" : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sem categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sem categoria</SelectItem>
-                  {expenseCategories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
             <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3">
               <div>
                 <p className="text-sm font-medium text-foreground">Ignorar transferencias</p>
@@ -616,6 +650,7 @@ export default function ImportPage() {
               <Switch checked={autoDetectInvestments} onCheckedChange={setAutoDetectInvestments} />
             </div>
           </div>
+
           <Button onClick={handleImport} disabled={loading}>
             {loading ? "Importando..." : "Importar"}
           </Button>
@@ -623,21 +658,24 @@ export default function ImportPage() {
       </Card>
 
       <Card>
-        <CardContent className="p-0">
+        <CardContent className="p-6">
           {previewRows.length === 0 ? (
-            <div className="p-6 text-sm text-muted-foreground">
+            <div className="text-sm text-muted-foreground">
               Nenhuma transacao carregada.
             </div>
           ) : (
-            <div>
-              <div className="flex items-center justify-between px-6 py-4">
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-sm font-medium text-foreground">Preview</p>
                   <p className="text-xs text-muted-foreground">
-                    Mostrando {previewRows.length} de {transactionRows.length}
+                    Mostrando {previewRows.length} de {filteredRows.length}
+                    {filteredRows.length !== transactionRows.length && (
+                      <span> (total {transactionRows.length})</span>
+                    )}
                   </p>
                 </div>
-                {transactionRows.length > 8 && (
+                {filteredRows.length > 8 && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -647,118 +685,201 @@ export default function ImportPage() {
                   </Button>
                 )}
               </div>
-              <div className="px-6 pb-4">
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary">Receitas {formatCurrency(summary.income)}</Badge>
-                  <Badge variant="secondary">Despesas {formatCurrency(summary.expense)}</Badge>
-                  <Badge variant="secondary">Transferencias +{formatCurrency(summary.transferIn)}</Badge>
-                  <Badge variant="secondary">Transferencias -{formatCurrency(summary.transferOut)}</Badge>
-                  <Badge variant="secondary">Investimentos {formatCurrency(summary.investment)}</Badge>
-                  <Badge variant="secondary">Carteira {formatCurrency(summary.market)}</Badge>
-                  <Badge variant="secondary">Receb. invest. {formatCurrency(summary.investmentIncome)}</Badge>
-                  <Badge variant="outline">Ignoradas {summary.skipped}</Badge>
+
+              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                <span>Receitas: {formatCurrency(previewSummary.income)}</span>
+                <span>•</span>
+                <span>Despesas: {formatCurrency(previewSummary.expense)}</span>
+                <span>•</span>
+                <span>Ignoradas: {previewSummary.skipped}</span>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="grid gap-2">
+                  <Label>Buscar</Label>
+                  <Input
+                    value={previewSearch}
+                    onChange={(e) => setPreviewSearch(e.target.value)}
+                    placeholder="Descricao ou detalhe"
+                    className="h-9"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Tipo</Label>
+                  <Select value={previewType} onValueChange={setPreviewType}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="income">Receitas</SelectItem>
+                      <SelectItem value="expense">Despesas</SelectItem>
+                      <SelectItem value="transfer">Transferencias</SelectItem>
+                      <SelectItem value="investment">Investimentos</SelectItem>
+                      <SelectItem value="market">Carteira</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Status</Label>
+                  <Select value={previewStatus} onValueChange={setPreviewStatus}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      <SelectItem value="active">Ativas</SelectItem>
+                      <SelectItem value="ignored">Ignoradas</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9"
+                    onClick={() => {
+                      setPreviewSearch("")
+                      setPreviewType("all")
+                      setPreviewStatus("all")
+                      setPreviewDateFrom("")
+                      setPreviewDateTo("")
+                      setPreviewMinValue("")
+                      setPreviewMaxValue("")
+                    }}
+                    disabled={!hasActiveFilters}
+                  >
+                    Limpar filtros
+                  </Button>
                 </div>
               </div>
-              <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Descricao</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {previewRows.map((row) => {
-                  const { tx } = row
-                  const isIncomeType =
-                    row.type === "income" ||
-                    row.type === "transfer_in" ||
-                    row.type === "investment_income" ||
-                    row.type === "market_income"
-                  const isExpenseType = row.type === "expense" || row.type === "transfer_out"
-                  const categoryList = isIncomeType ? incomeCategories : expenseCategories
-                  const categoryValue =
-                    categoryOverrides[row.id] ||
-                    (isIncomeType ? incomeCategory : expenseCategory) ||
-                    "none"
 
-                  return (
-                    <TableRow key={row.id}>
-                      <TableCell className="whitespace-nowrap">
-                        {formatDate(tx.date)}
-                      </TableCell>
-                      <TableCell>
-                        <p className="text-sm font-medium text-foreground">
-                          {tx.name}
-                        </p>
-                        {tx.memo && (
-                          <p className="text-xs text-muted-foreground/80">{tx.memo}</p>
-                        )}
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        {formatCurrency(Math.abs(tx.amount))}
-                      </TableCell>
-                      <TableCell>
-                        {row.type === "investment_out"
-                          ? "Investimento"
-                          : row.type === "market_out"
-                            ? "Carteira"
-                            : row.type === "investment_income" || row.type === "market_income"
-                              ? "Receb. investimento"
-                              : row.type === "transfer_in"
-                                ? "Transf. recebida"
-                                : row.type === "transfer_out"
-                                  ? "Transf. enviada"
-                                  : tx.amount >= 0
-                                    ? "Receita"
-                                    : "Despesa"}
-                      </TableCell>
-                      <TableCell className="min-w-[220px]">
-                        <Select
-                          value={categoryValue}
-                          onValueChange={(value) =>
-                            setCategoryOverrides((prev) => ({
-                              ...prev,
-                              [row.id]: value,
-                            }))
-                          }
-                          disabled={row.type === "investment_out" || row.type === "market_out"}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Sem categoria" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Sem categoria</SelectItem>
-                            {categoryList.map((cat) => (
-                              <SelectItem key={cat.id} value={cat.id}>
-                                {cat.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-wrap gap-2">
-                          {row.skipped && <Badge variant="outline">Ignorada</Badge>}
-                          {row.type === "income" && <Badge variant="secondary">Receita</Badge>}
-                          {row.type === "expense" && <Badge variant="secondary">Despesa</Badge>}
-                          {row.type === "transfer_in" && <Badge variant="secondary">Transf. recebida</Badge>}
-                          {row.type === "transfer_out" && <Badge variant="secondary">Transf. enviada</Badge>}
-                          {row.type === "investment_out" && <Badge variant="secondary">Investimento</Badge>}
-                          {row.type === "market_out" && <Badge variant="secondary">Carteira</Badge>}
-                          {(row.type === "investment_income" || row.type === "market_income") && (
-                            <Badge variant="secondary">Receb. investimento</Badge>
-                          )}
-                        </div>
-                      </TableCell>
+              <div className="grid gap-3 md:grid-cols-4">
+                <div className="grid gap-2">
+                  <Label>Data inicial</Label>
+                  <Input
+                    type="date"
+                    value={previewDateFrom}
+                    onChange={(e) => setPreviewDateFrom(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Data final</Label>
+                  <Input
+                    type="date"
+                    value={previewDateTo}
+                    onChange={(e) => setPreviewDateTo(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Valor minimo</Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    value={previewMinValue}
+                    onChange={(e) => setPreviewMinValue(e.target.value)}
+                    placeholder="0,00"
+                    className="h-9"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Valor maximo</Label>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    value={previewMaxValue}
+                    onChange={(e) => setPreviewMaxValue(e.target.value)}
+                    placeholder="0,00"
+                    className="h-9"
+                  />
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Data</TableHead>
+                      <TableHead>Descricao</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {previewRows.map((row) => {
+                      const { tx } = row
+                      const isIncomeType =
+                        row.type === "income" ||
+                        row.type === "transfer_in" ||
+                        row.type === "investment_income" ||
+                        row.type === "market_income"
+                      const isExpenseType = row.type === "expense" || row.type === "transfer_out"
+                      return (
+                        <TableRow key={row.id} className={row.skipped ? "opacity-60" : undefined}>
+                          <TableCell className="whitespace-nowrap">
+                            {formatDate(tx.date)}
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <Input
+                                value={descriptionOverrides[row.id] ?? tx.name}
+                                onChange={(e) =>
+                                  setDescriptionOverrides((prev) => ({
+                                    ...prev,
+                                    [row.id]: e.target.value,
+                                  }))
+                                }
+                                onBlur={() => {
+                                  setDescriptionOverrides((prev) => {
+                                    const next = { ...prev }
+                                    const current = (next[row.id] ?? "").trim()
+                                    if (!current || current === tx.name) {
+                                      delete next[row.id]
+                                    } else {
+                                      next[row.id] = current
+                                    }
+                                    return next
+                                  })
+                                }}
+                                placeholder="Descricao da transacao"
+                                className="h-9"
+                              />
+                              {tx.memo && (
+                                <p className="text-xs text-muted-foreground/80">{tx.memo}</p>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            <span
+                              className={
+                                isIncomeType
+                                  ? "text-success"
+                                  : isExpenseType
+                                    ? "text-destructive"
+                                    : "text-foreground"
+                              }
+                            >
+                              {formatCurrency(Math.abs(tx.amount))}
+                            </span>
+                          </TableCell>
+                          <TableCell>{getTypeLabel(row.type, tx.amount)}</TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-2">
+                              {row.skipped && <Badge variant="outline">Ignorada</Badge>}
+                              {!row.skipped && <Badge variant="secondary">Ativa</Badge>}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
           )}
         </CardContent>

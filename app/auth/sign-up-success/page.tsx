@@ -5,7 +5,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Mail, BadgeCheck } from "lucide-react"
+import { BadgeCheck } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
 export default function SignUpSuccessPage() {
   return (
@@ -20,21 +22,22 @@ export default function SignUpSuccessPage() {
           </div>
           <Card className="glass-panel border-0">
             <CardHeader className="text-center">
-              <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                <Mail className="h-6 w-6 text-primary" />
-              </div>
               <CardTitle className="text-2xl font-display">
                 Conta criada!
               </CardTitle>
               <CardDescription>
-                Verifique seu e-mail para confirmar.
+                Sua conta ja esta pronta para uso.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="rounded-2xl border border-primary/20 bg-primary/10 p-4 text-sm text-primary">
                 <BadgeCheck className="mb-2 h-4 w-4" />
-                Enviamos um link de confirmacao para seu e-mail. Clique no link
-                para ativar sua conta e comecar a usar o NexFinance.
+                Voce pode entrar agora mesmo e comecar a usar o NexFinance.
+              </div>
+              <div className="mt-4 flex justify-center">
+                <Button asChild>
+                  <Link href="/auth/login">Entrar</Link>
+                </Button>
               </div>
             </CardContent>
           </Card>

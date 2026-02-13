@@ -30,7 +30,7 @@ export const MONTHS = [
 export const PAYMENT_METHODS: Record<string, string> = {
   credit: "Cartao de Credito",
   debit: "Cartao de Debito",
-  voucher: "Vale Refeicao",
+  voucher: "Investimento",
   pix: "Pix",
   cash: "Dinheiro",
 }

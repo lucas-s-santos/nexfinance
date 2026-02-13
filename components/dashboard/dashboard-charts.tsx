@@ -98,6 +98,7 @@ export function DashboardCharts({
     value,
   }))
 
+
   const formatCompact = (value: number) =>
     new Intl.NumberFormat("pt-BR", {
       notation: "compact",

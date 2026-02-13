@@ -153,7 +153,7 @@ export function QuickAdd() {
                   <SelectContent>
                     <SelectItem value="debit">Cartao de Debito</SelectItem>
                     <SelectItem value="credit">Cartao de Credito</SelectItem>
-                    <SelectItem value="voucher">Vale Refeicao</SelectItem>
+                    <SelectItem value="voucher">Investimento</SelectItem>
                     <SelectItem value="pix">Pix</SelectItem>
                     <SelectItem value="cash">Dinheiro</SelectItem>
                   </SelectContent>
