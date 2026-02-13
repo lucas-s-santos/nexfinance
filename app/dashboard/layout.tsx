@@ -4,6 +4,10 @@ import { SidebarNav } from "@/components/dashboard/sidebar-nav"
 import { OnboardingModal } from "@/components/dashboard/onboarding-modal"
 import { QuickAdd } from "@/components/dashboard/quick-add"
 
+// Força todas as rotas de dashboard a serem dinamicas (nao pre-renderizar)
+// Necessario pois precisam de autenticacao Supabase no servidor
+export const dynamic = 'force-dynamic'
+
 export default function DashboardLayout({
   children,
 }: {
