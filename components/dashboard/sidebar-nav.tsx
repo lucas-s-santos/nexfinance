@@ -16,7 +16,7 @@ import {
   Landmark,
   FileText,
   FileUp,
-  Bell,
+  UserCircle,
   History,
   LogOut,
   ChevronLeft,
@@ -44,8 +44,8 @@ const navItems = [
   { href: "/dashboard/goals", label: "Metas", icon: Target },
   { href: "/dashboard/import", label: "Importacao", icon: FileUp },
   { href: "/dashboard/reports", label: "Relatorios", icon: FileText },
-  { href: "/dashboard/notifications", label: "Notificacoes", icon: Bell },
   { href: "/dashboard/audit", label: "Auditoria", icon: History },
+  { href: "/dashboard/profile", label: "Perfil", icon: UserCircle },
 ]
 
 export function SidebarNav() {

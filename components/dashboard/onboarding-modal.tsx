@@ -46,25 +46,22 @@ export function OnboardingModal() {
         .single()
 
       if (!profile && !profileError) {
-        const { error: createError } = await supabase.from("profiles").insert({
+        await supabase.from("profiles").insert({
           id: user.id,
           display_name: null,
-          onboarding_completed: false,
+          onboarding_completed: true,
         })
-        if (!createError) {
-          setOpen(true)
-        }
         setChecking(false)
         return
       }
 
-      if (profile?.display_name) {
-        setFullName(profile.display_name)
+      if (!profile?.onboarding_completed) {
+        await supabase
+          .from("profiles")
+          .update({ onboarding_completed: true })
+          .eq("id", user.id)
       }
 
-      if (!profile?.onboarding_completed) {
-        setOpen(true)
-      }
       setChecking(false)
     }
     checkOnboarding()

@@ -3,6 +3,7 @@ import { PeriodProvider } from "@/lib/period-context"
 import { SidebarNav } from "@/components/dashboard/sidebar-nav"
 import { OnboardingModal } from "@/components/dashboard/onboarding-modal"
 import { QuickAdd } from "@/components/dashboard/quick-add"
+import { ColorSync } from "@/components/dashboard/color-sync"
 
 export default function DashboardLayout({
   children,
@@ -12,6 +13,7 @@ export default function DashboardLayout({
   return (
     <PeriodProvider>
       <div className="min-h-svh">
+        <ColorSync />
         <SidebarNav />
         <OnboardingModal />
         <QuickAdd />

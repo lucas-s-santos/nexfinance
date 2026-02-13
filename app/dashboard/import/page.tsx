@@ -64,6 +64,7 @@ export default function ImportPage() {
     type: "",
   })
   const [descriptionOverrides, setDescriptionOverrides] = useState<Record<string, string>>({})
+  const [ignoredOverrides, setIgnoredOverrides] = useState<Record<string, boolean>>({})
   const [loading, setLoading] = useState(false)
   const [ignoreTransfers, setIgnoreTransfers] = useState(false)
   const [autoDetectInvestments, setAutoDetectInvestments] = useState(true)
@@ -216,6 +217,7 @@ export default function ImportPage() {
     const extension = file.name.split(".").pop()?.toLowerCase()
     setFileName(file.name)
     setDescriptionOverrides({})
+    setIgnoredOverrides({})
 
     if (extension === "csv") {
       const parsed = parseCsv(text)
@@ -278,11 +280,25 @@ export default function ImportPage() {
     return expensePaymentMethod
   }
 
+  const resolveRowType = (tx: ImportTransaction) => {
+    return autoDetectInvestments
+      ? classifyTransaction(tx)
+      : tx.amount >= 0
+        ? "income"
+        : "expense"
+  }
+
+  const isTransferType = (type: string) =>
+    type === "transfer_in" || type === "transfer_out"
+
+  const isRowSkipped = (tx: ImportTransaction, type: string) =>
+    (ignoreTransfers && isTransferType(type)) || Boolean(ignoredOverrides[tx.id])
+
   const transactionRows = useMemo(() => {
     return transactions.map((tx) => {
-      const type = autoDetectInvestments ? classifyTransaction(tx) : tx.amount >= 0 ? "income" : "expense"
-      const transfer = type === "transfer_in" || type === "transfer_out"
-      const skipped = ignoreTransfers && transfer
+      const type = resolveRowType(tx)
+      const transfer = isTransferType(type)
+      const skipped = isRowSkipped(tx, type)
 
       return {
         id: tx.id,
@@ -292,7 +308,14 @@ export default function ImportPage() {
         type,
       }
     })
-  }, [autoDetectInvestments, descriptionOverrides, ignoreTransfers, transactions])
+  }, [autoDetectInvestments, descriptionOverrides, ignoreTransfers, ignoredOverrides, transactions])
+
+  const toggleIgnored = (id: string) => {
+    setIgnoredOverrides((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }))
+  }
 
   const filteredRows = useMemo(() => {
     const query = normalizeText(previewSearch.trim())
@@ -410,6 +433,7 @@ export default function ImportPage() {
     const built = buildTransactionsFromCsv(csvData, csvMap)
     setTransactions(built)
     setDescriptionOverrides({})
+    setIgnoredOverrides({})
   }, [csvData, csvMap, fileType])
 
   const ensurePeriod = async (userId: string, date: string) => {
@@ -443,62 +467,137 @@ export default function ImportPage() {
       toast.error("Nenhuma transacao encontrada")
       return
     }
+
+    const activeRows = transactions
+      .map((tx) => {
+        const type = resolveRowType(tx)
+        const skipped = isRowSkipped(tx, type)
+        return {
+          id: tx.id,
+          tx,
+          type,
+          skipped,
+        }
+      })
+      .filter((row) => !row.skipped)
+    if (activeRows.length === 0) {
+      toast.error("Nenhuma transacao ativa para importar")
+      return
+    }
+
+    console.log("🚀 Iniciando importacao de", activeRows.length, "transacoes")
     setLoading(true)
     const supabase = createClient()
     const {
       data: { user },
     } = await supabase.auth.getUser()
-    if (!user) return
+    
+    if (!user) {
+      console.error("❌ Usuario nao autenticado")
+      toast.error("Usuario nao autenticado")
+      setLoading(false)
+      return
+    }
 
-    for (const row of transactionRows) {
-      if (row.skipped) continue
-      const tx = row.tx
-      const periodId = await ensurePeriod(user.id, tx.date)
-      if (!periodId) continue
-      const resolvedName = getTxDescription(tx)
+    console.log("✅ Usuario autenticado:", user.id)
 
-      if (row.type === "investment_out" || row.type === "market_out") {
-        await supabase.from("reserves_investments").insert({
-          user_id: user.id,
-          name: resolvedName,
-          value: Math.abs(tx.amount),
-          date: tx.date,
-          type: row.type === "market_out" ? "market" : "investment",
-        })
-        continue
-      }
+    let imported = 0
+    let failed = 0
 
-      const isIncomeType =
-        row.type === "income" ||
-        row.type === "transfer_in" ||
-        row.type === "investment_income" ||
-        row.type === "market_income"
+    for (const row of activeRows) {
+      try {
+        const tx = row.tx
+        console.log("📝 Processando transacao:", tx.date, tx.name, tx.amount)
+        
+        const periodId = await ensurePeriod(user.id, tx.date)
+        if (!periodId) {
+          console.error("❌ Erro ao criar periodo para", tx.date)
+          failed++
+          continue
+        }
+        console.log("✅ Periodo criado/encontrado:", periodId)
+        
+        const resolvedName = getTxDescription(tx)
 
-      if (isIncomeType) {
-        await supabase.from("incomes").insert({
-          user_id: user.id,
-          period_id: periodId,
-          name: resolvedName,
-          value: tx.amount,
-          date: tx.date,
-          category_id: null,
-        })
-      } else {
-        await supabase.from("expenses").insert({
-          user_id: user.id,
-          period_id: periodId,
-          name: resolvedName,
-          value: Math.abs(tx.amount),
-          date: tx.date,
-          category_id: null,
-          payment_method: resolveExpensePaymentMethod(tx, row.type),
-          is_essential: false,
-        })
+        if (row.type === "investment_out" || row.type === "market_out") {
+          console.log("💰 Inserindo reserva/investimento")
+          const { error } = await supabase.from("reserves_investments").insert({
+            user_id: user.id,
+            name: resolvedName,
+            value: Math.abs(tx.amount),
+            date: tx.date,
+            type: row.type === "market_out" ? "market" : "investment",
+          })
+          if (error) {
+            console.error("❌ Erro ao importar reserva:", error)
+            failed++
+          } else {
+            console.log("✅ Reserva importada")
+            imported++
+          }
+          continue
+        }
+
+        const isIncomeType =
+          row.type === "income" ||
+          row.type === "transfer_in" ||
+          row.type === "investment_income" ||
+          row.type === "market_income"
+
+        if (isIncomeType) {
+          console.log("💵 Inserindo receita")
+          const { error } = await supabase.from("incomes").insert({
+            user_id: user.id,
+            period_id: periodId,
+            name: resolvedName,
+            value: tx.amount,
+            date: tx.date,
+            category_id: null,
+          })
+          if (error) {
+            console.error("❌ Erro ao importar receita:", error)
+            failed++
+          } else {
+            console.log("✅ Receita importada")
+            imported++
+          }
+        } else {
+          console.log("💸 Inserindo despesa")
+          const { error } = await supabase.from("expenses").insert({
+            user_id: user.id,
+            period_id: periodId,
+            name: resolvedName,
+            value: Math.abs(tx.amount),
+            date: tx.date,
+            category_id: null,
+            payment_method: resolveExpensePaymentMethod(tx, row.type),
+            is_essential: false,
+          })
+          if (error) {
+            console.error("❌ Erro ao importar despesa:", error)
+            failed++
+          } else {
+            console.log("✅ Despesa importada")
+            imported++
+          }
+        }
+      } catch (error) {
+        console.error("❌ Erro ao processar transacao:", error)
+        failed++
       }
     }
 
     setLoading(false)
-    toast.success("Importacao concluida")
+    console.log("📊 Importacao finalizada:", imported, "sucesso,", failed, "falhas")
+    
+    if (imported > 0) {
+      toast.success(`${imported} transacao(oes) importada(s) com sucesso!`)
+      if (failed > 0) {
+        toast.warning(`${failed} transacao(oes) falharam. Verifique o console (F12).`)
+      }
+    } else {
+      toast.error("Nenhuma transacao foi importada. Abra o console (F12) para detalhes.")
+    }
   }
 
   return (
@@ -808,6 +907,7 @@ export default function ImportPage() {
                       <TableHead>Valor</TableHead>
                       <TableHead>Tipo</TableHead>
                       <TableHead>Status</TableHead>
+                      <TableHead>Acoes</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -873,6 +973,15 @@ export default function ImportPage() {
                               {row.skipped && <Badge variant="outline">Ignorada</Badge>}
                               {!row.skipped && <Badge variant="secondary">Ativa</Badge>}
                             </div>
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant={row.skipped ? "outline" : "ghost"}
+                              size="sm"
+                              onClick={() => toggleIgnored(row.id)}
+                            >
+                              {row.skipped ? "Reativar" : "Ignorar"}
+                            </Button>
                           </TableCell>
                         </TableRow>
                       )

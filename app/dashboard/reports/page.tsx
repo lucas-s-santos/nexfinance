@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { usePeriod } from "@/lib/period-context"
 import { createClient } from "@/lib/supabase/client"
-import { formatCurrency, MONTHS } from "@/lib/format"
+import { formatCurrency, formatDate, MONTHS } from "@/lib/format"
 import { exportToCSV } from "@/components/dashboard/advanced-filters"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -24,12 +24,23 @@ interface ReportRow {
   year: number
 }
 
+type DetailRow = {
+  date: string
+  type: "Receita" | "Despesa"
+  description: string
+  category: string
+  amount: number
+  paymentMethod: string
+  essential: string
+}
+
 export default function ReportsPage() {
   const { month, year } = usePeriod()
   const [selectedMonth, setSelectedMonth] = useState(month)
   const [selectedYear, setSelectedYear] = useState(year)
   const [report, setReport] = useState<ReportRow | null>(null)
   const [previous, setPrevious] = useState<ReportRow | null>(null)
+  const [details, setDetails] = useState<DetailRow[]>([])
 
   const years = Array.from({ length: 6 }, (_, i) => year - 3 + i)
 
@@ -79,6 +90,46 @@ export default function ReportsPage() {
       const currentTotals = await sumFor(period?.id)
       const previousTotals = await sumFor(prevPeriod?.id)
 
+      if (period?.id) {
+        const { data: incomes } = await supabase
+          .from("incomes")
+          .select("name, value, date, category:categories(name)")
+          .eq("period_id", period.id)
+          .order("date", { ascending: true })
+
+        const { data: expenses } = await supabase
+          .from("expenses")
+          .select("name, value, date, payment_method, is_essential, category:categories(name)")
+          .eq("period_id", period.id)
+          .order("date", { ascending: true })
+
+        const incomeRows: DetailRow[] = (incomes ?? []).map((row) => ({
+          date: row.date,
+          type: "Receita",
+          description: row.name,
+          category: row.category?.name ?? "",
+          amount: Number(row.value),
+          paymentMethod: "",
+          essential: "",
+        }))
+
+        const expenseRows: DetailRow[] = (expenses ?? []).map((row) => ({
+          date: row.date,
+          type: "Despesa",
+          description: row.name,
+          category: row.category?.name ?? "",
+          amount: Number(row.value),
+          paymentMethod: row.payment_method ?? "",
+          essential: row.is_essential ? "Sim" : "Nao",
+        }))
+
+        const merged = [...incomeRows, ...expenseRows]
+        merged.sort((a, b) => a.date.localeCompare(b.date))
+        setDetails(merged)
+      } else {
+        setDetails([])
+      }
+
       setReport({
         ...currentTotals,
         month: selectedMonth,
@@ -96,21 +147,81 @@ export default function ReportsPage() {
 
   const handleCSV = () => {
     if (!report) return
+    const fmt = (value: number) => value.toFixed(2)
+    const currentBalance = report.income - report.expense
+    const prevIncome = previous?.income ?? 0
+    const prevExpense = previous?.expense ?? 0
+    const prevBalance = prevIncome - prevExpense
+    const incomeDelta = report.income - prevIncome
+    const expenseDelta = report.expense - prevExpense
+    const balanceDelta = currentBalance - prevBalance
+    const percent = (value: number, base: number) =>
+      base === 0 ? "0.00" : ((value / base) * 100).toFixed(2)
+
+    const summaryRow = {
+      row_type: "Resumo",
+      period: `${MONTHS[report.month - 1]} ${report.year}`,
+      date: "",
+      type: "",
+      description: "",
+      category: "",
+      amount: "",
+      payment_method: "",
+      essential: "",
+      income_total: fmt(report.income),
+      expense_total: fmt(report.expense),
+      balance_total: fmt(currentBalance),
+      income_change: fmt(incomeDelta),
+      income_change_pct: percent(incomeDelta, prevIncome),
+      expense_change: fmt(expenseDelta),
+      expense_change_pct: percent(expenseDelta, prevExpense),
+      balance_change: fmt(balanceDelta),
+      balance_change_pct: percent(balanceDelta, prevBalance),
+    }
+
+    const detailRows = details.map((row) => ({
+      row_type: "Detalhe",
+      period: `${MONTHS[report.month - 1]} ${report.year}`,
+      date: formatDate(row.date),
+      type: row.type,
+      description: row.description,
+      category: row.category,
+      amount: fmt(row.amount),
+      payment_method: row.paymentMethod,
+      essential: row.essential,
+      income_total: "",
+      expense_total: "",
+      balance_total: "",
+      income_change: "",
+      income_change_pct: "",
+      expense_change: "",
+      expense_change_pct: "",
+      balance_change: "",
+      balance_change_pct: "",
+    }))
+
     exportToCSV(
+      [summaryRow, ...detailRows],
+      `relatorio-mensal-${report.year}-${String(report.month).padStart(2, "0")}`,
       [
-        {
-          month: `${MONTHS[report.month - 1]} ${report.year}`,
-          income: formatCurrency(report.income),
-          expense: formatCurrency(report.expense),
-          balance: formatCurrency(report.income - report.expense),
-        },
-      ],
-      "relatorio-mensal",
-      [
-        { key: "month", label: "Mes" },
-        { key: "income", label: "Receitas" },
-        { key: "expense", label: "Despesas" },
-        { key: "balance", label: "Saldo" },
+        { key: "row_type", label: "Tipo de Linha" },
+        { key: "period", label: "Periodo" },
+        { key: "date", label: "Data" },
+        { key: "type", label: "Tipo" },
+        { key: "description", label: "Descricao" },
+        { key: "category", label: "Categoria" },
+        { key: "amount", label: "Valor" },
+        { key: "payment_method", label: "Metodo" },
+        { key: "essential", label: "Essencial" },
+        { key: "income_total", label: "Total Receitas" },
+        { key: "expense_total", label: "Total Despesas" },
+        { key: "balance_total", label: "Total Saldo" },
+        { key: "income_change", label: "Var. Receitas" },
+        { key: "income_change_pct", label: "% Var. Receitas" },
+        { key: "expense_change", label: "Var. Despesas" },
+        { key: "expense_change_pct", label: "% Var. Despesas" },
+        { key: "balance_change", label: "Var. Saldo" },
+        { key: "balance_change_pct", label: "% Var. Saldo" },
       ]
     )
   }
@@ -118,14 +229,69 @@ export default function ReportsPage() {
   const handlePDF = () => {
     if (!report) return
     const doc = new jsPDF()
+    const currentBalance = report.income - report.expense
+    const prevIncome = previous?.income ?? 0
+    const prevExpense = previous?.expense ?? 0
+    const prevBalance = prevIncome - prevExpense
+    const incomeDelta = report.income - prevIncome
+    const expenseDelta = report.expense - prevExpense
+    const balanceDelta = currentBalance - prevBalance
+    const pageHeight = 280
+    const left = 14
+    let y = 20
+
     doc.setFontSize(16)
-    doc.text("Relatorio Mensal - NexFinance", 14, 20)
+    doc.text("Relatorio Mensal - NexFinance", left, y)
     doc.setFontSize(12)
-    doc.text(`Mes: ${MONTHS[report.month - 1]} ${report.year}`, 14, 32)
-    doc.text(`Receitas: ${formatCurrency(report.income)}`, 14, 44)
-    doc.text(`Despesas: ${formatCurrency(report.expense)}`, 14, 56)
-    doc.text(`Saldo: ${formatCurrency(report.income - report.expense)}`, 14, 68)
-    doc.save("relatorio-mensal.pdf")
+    y += 12
+    doc.text(`Mes: ${MONTHS[report.month - 1]} ${report.year}`, left, y)
+    y += 12
+    doc.text(`Receitas: ${formatCurrency(report.income)}`, left, y)
+    y += 12
+    doc.text(`Despesas: ${formatCurrency(report.expense)}`, left, y)
+    y += 12
+    doc.text(`Saldo: ${formatCurrency(currentBalance)}`, left, y)
+    y += 12
+    doc.text(
+      `Comparativo (mes anterior): ${formatCurrency(incomeDelta)} / ${formatCurrency(expenseDelta)} / ${formatCurrency(balanceDelta)}`,
+      left,
+      y
+    )
+
+    y += 14
+    doc.setFontSize(11)
+    doc.text("Detalhamento", left, y)
+    y += 8
+    doc.setFontSize(10)
+    doc.text("Data", left, y)
+    doc.text("Tipo", left + 28, y)
+    doc.text("Descricao", left + 52, y)
+    doc.text("Valor", left + 150, y)
+    y += 6
+
+    const truncate = (text: string, max: number) =>
+      text.length > max ? `${text.slice(0, max - 1)}...` : text
+
+    for (const row of details) {
+      if (y > pageHeight) {
+        doc.addPage()
+        y = 20
+        doc.setFontSize(10)
+        doc.text("Data", left, y)
+        doc.text("Tipo", left + 28, y)
+        doc.text("Descricao", left + 52, y)
+        doc.text("Valor", left + 150, y)
+        y += 6
+      }
+      doc.text(formatDate(row.date), left, y)
+      doc.text(row.type, left + 28, y)
+      doc.text(truncate(row.description, 50), left + 52, y)
+      doc.text(formatCurrency(row.amount), left + 150, y, { align: "left" })
+      y += 6
+    }
+    doc.save(
+      `relatorio-mensal-${report.year}-${String(report.month).padStart(2, "0")}.pdf`
+    )
   }
 
   return (
