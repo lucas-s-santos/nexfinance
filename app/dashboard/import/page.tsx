@@ -6,6 +6,7 @@ import { parseOfx } from "@/lib/ofx"
 import { parseCsv } from "@/lib/csv"
 import { parseMoneyToNumber } from "@/lib/money"
 import { formatCurrency, formatDate } from "@/lib/format"
+import { useCategories } from "@/lib/use-financial-data"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -65,6 +66,8 @@ export default function ImportPage() {
   })
   const [descriptionOverrides, setDescriptionOverrides] = useState<Record<string, string>>({})
   const [ignoredOverrides, setIgnoredOverrides] = useState<Record<string, boolean>>({})
+  const [categoryOverrides, setCategoryOverrides] = useState<Record<string, string>>({})
+  const [autoCategoriesApplied, setAutoCategoriesApplied] = useState(false)
   const [loading, setLoading] = useState(false)
   const [ignoreTransfers, setIgnoreTransfers] = useState(false)
   const [autoDetectInvestments, setAutoDetectInvestments] = useState(true)
@@ -78,6 +81,10 @@ export default function ImportPage() {
   const [previewDateTo, setPreviewDateTo] = useState("")
   const [previewMinValue, setPreviewMinValue] = useState("")
   const [previewMaxValue, setPreviewMaxValue] = useState("")
+
+  const { data: categories } = useCategories()
+  const incomeCategories = (categories ?? []).filter((cat) => cat.type === "income")
+  const expenseCategories = (categories ?? []).filter((cat) => cat.type === "expense")
 
   const investmentKeywords = [
     "aplicacao rdb",
@@ -117,6 +124,64 @@ export default function ImportPage() {
     "transferencia recebida pelo pix",
     "transferencia recebida pelo pix via open banking",
     "transferencia recebida",
+  ]
+
+  const categoryRules = [
+    {
+      baseType: "income",
+      keywords: ["salario", "salário"],
+      names: ["Salario", "Salário"],
+    },
+    {
+      baseType: "income",
+      keywords: ["freelance"],
+      names: ["Freelance"],
+    },
+    {
+      baseType: "expense",
+      keywords: [
+        "supermercado",
+        "mercado",
+        "padaria",
+        "restaurante",
+        "lanchonete",
+        "sorveteria",
+        "ifood",
+        "alimentacao",
+        "alimentação",
+      ],
+      names: ["Alimentacao", "Alimentação"],
+    },
+    {
+      baseType: "expense",
+      keywords: ["uber", "99", "gasolina", "combustivel", "combustível", "transporte"],
+      names: ["Transporte"],
+    },
+    {
+      baseType: "expense",
+      keywords: ["aluguel", "condominio", "condomínio", "energia", "luz", "agua", "água", "internet"],
+      names: ["Moradia"],
+    },
+    {
+      baseType: "expense",
+      keywords: ["farmacia", "farmácia", "medico", "médico", "hospital", "saude", "saúde"],
+      names: ["Saude", "Saúde"],
+    },
+    {
+      baseType: "expense",
+      keywords: ["curso", "faculdade", "escola", "educacao", "educação"],
+      names: ["Educacao", "Educação"],
+    },
+    {
+      baseType: "expense",
+      keywords: ["cinema", "netflix", "spotify", "streaming", "lazer"],
+      names: ["Lazer"],
+    },
+    {
+      baseType: "expense",
+      keywords: ["shopping", "loja", "compra", "compras", "amazon", "mercado livre"],
+      names: ["Compras"],
+    },
   ]
 
   const getTxDescription = (tx: ImportTransaction) => {
@@ -218,6 +283,8 @@ export default function ImportPage() {
     setFileName(file.name)
     setDescriptionOverrides({})
     setIgnoredOverrides({})
+    setCategoryOverrides({})
+    setAutoCategoriesApplied(false)
 
     if (extension === "csv") {
       const parsed = parseCsv(text)
@@ -250,11 +317,75 @@ export default function ImportPage() {
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
 
+  const buildCategoryMap = (items: Array<{ id: string; name: string }>) => {
+    const map = new Map<string, string>()
+    items.forEach((cat) => {
+      map.set(normalizeText(cat.name), cat.id)
+    })
+    return map
+  }
+
+  const incomeCategoryMap = useMemo(
+    () => buildCategoryMap(incomeCategories),
+    [incomeCategories]
+  )
+  const expenseCategoryMap = useMemo(
+    () => buildCategoryMap(expenseCategories),
+    [expenseCategories]
+  )
+
+  const findCategoryId = (names: string[], baseType: string) => {
+    const map = baseType === "income" ? incomeCategoryMap : expenseCategoryMap
+    for (const name of names) {
+      const id = map.get(normalizeText(name))
+      if (id) return id
+    }
+    return null
+  }
+
   const normalizeDescription = (tx: ImportTransaction) =>
     normalizeText(`${getTxDescription(tx)} ${tx.memo ?? ""}`)
 
   const hasKeyword = (normalized: string, keywords: string[]) =>
     keywords.some((keyword) => normalized.includes(keyword))
+
+  const suggestCategoryId = (
+    tx: ImportTransaction,
+    baseType: "income" | "expense",
+    rowType: string
+  ) => {
+    const normalized = normalizeDescription(tx)
+
+    if (rowType === "transfer_in" || rowType === "transfer_out") {
+      return (
+        findCategoryId(["Transferencias", "Transferência", "Transferencia"], baseType) ||
+        findCategoryId(["Outros"], baseType)
+      )
+    }
+
+    if (
+      rowType === "investment_out" ||
+      rowType === "investment_income" ||
+      rowType === "market_out" ||
+      rowType === "market_income" ||
+      hasKeyword(normalized, [...investmentKeywords, ...marketKeywords])
+    ) {
+      return (
+        findCategoryId(["Investimentos"], baseType) ||
+        findCategoryId(["Outros"], baseType)
+      )
+    }
+
+    for (const rule of categoryRules) {
+      if (rule.baseType !== baseType) continue
+      if (hasKeyword(normalized, rule.keywords)) {
+        const match = findCategoryId(rule.names, baseType)
+        if (match) return match
+      }
+    }
+
+    return null
+  }
 
   const classifyTransaction = (tx: ImportTransaction) => {
     const normalized = normalizeDescription(tx)
@@ -288,6 +419,9 @@ export default function ImportPage() {
         : "expense"
   }
 
+  const resolveBaseType = (tx: ImportTransaction) =>
+    tx.amount >= 0 ? "income" : "expense"
+
   const isTransferType = (type: string) =>
     type === "transfer_in" || type === "transfer_out"
 
@@ -299,6 +433,7 @@ export default function ImportPage() {
       const type = resolveRowType(tx)
       const transfer = isTransferType(type)
       const skipped = isRowSkipped(tx, type)
+      const baseType = resolveBaseType(tx)
 
       return {
         id: tx.id,
@@ -306,6 +441,7 @@ export default function ImportPage() {
         transfer,
         skipped,
         type,
+        baseType,
       }
     })
   }, [autoDetectInvestments, descriptionOverrides, ignoreTransfers, ignoredOverrides, transactions])
@@ -325,18 +461,19 @@ export default function ImportPage() {
       return cleaned ? cleaned : tx.name
     }
 
-    const matchesType = (type: string) => {
+    const matchesType = (rowType: string, baseType: string) => {
       if (previewType === "all") return true
-      if (previewType === "income") return type === "income"
-      if (previewType === "expense") return type === "expense"
-      if (previewType === "transfer") return type === "transfer_in" || type === "transfer_out"
-      if (previewType === "investment") return type === "investment_out" || type === "investment_income"
-      if (previewType === "market") return type === "market_out" || type === "market_income"
+      if (previewType === "income") return baseType === "income"
+      if (previewType === "expense") return baseType === "expense"
+      if (previewType === "transfer") return rowType === "transfer_in" || rowType === "transfer_out"
+      if (previewType === "investment") return rowType === "investment_out" || rowType === "investment_income"
+      if (previewType === "market") return rowType === "market_out" || rowType === "market_income"
       return true
     }
 
     return transactionRows.filter((row) => {
-      if (!matchesType(row.type)) return false
+      if (!matchesType(row.type, row.baseType)) return false
+      if (ignoreTransfers && row.transfer) return false
       if (previewStatus === "ignored" && !row.skipped) return false
       if (previewStatus === "active" && row.skipped) return false
       if (previewDateFrom && row.tx.date < previewDateFrom) return false
@@ -357,17 +494,13 @@ export default function ImportPage() {
     previewSearch,
     previewStatus,
     previewType,
+    ignoreTransfers,
     transactionRows,
   ])
 
   const previewSummary = useMemo(() => {
     let income = 0
     let expense = 0
-    let investment = 0
-    let market = 0
-    let transferIn = 0
-    let transferOut = 0
-    let investmentIncome = 0
     let skipped = 0
 
     for (const row of filteredRows) {
@@ -376,31 +509,15 @@ export default function ImportPage() {
         continue
       }
       const amount = Math.abs(row.tx.amount)
-      if (row.type === "investment_out") investment += amount
-      else if (row.type === "market_out") market += amount
-      else if (row.type === "investment_income" || row.type === "market_income") {
-        income += amount
-        investmentIncome += amount
-      } else if (row.type === "transfer_in") {
-        income += amount
-        transferIn += amount
-      } else if (row.type === "transfer_out") {
-        expense += amount
-        transferOut += amount
-      } else if (row.type === "income") income += amount
+      if (row.baseType === "income") income += amount
       else expense += amount
     }
 
     return {
       income,
       expense,
-      investment,
-      market,
-      transferIn,
-      transferOut,
-      investmentIncome,
       skipped,
-      total: income + expense + investment + market,
+      total: income + expense,
     }
   }, [filteredRows])
 
@@ -419,11 +536,6 @@ export default function ImportPage() {
     previewMaxValue !== ""
 
   const getTypeLabel = (type: string, amount: number) => {
-    if (type === "investment_out") return "Investimento"
-    if (type === "market_out") return "Carteira"
-    if (type === "investment_income" || type === "market_income") return "Receb. investimento"
-    if (type === "transfer_in") return "Transf. recebida"
-    if (type === "transfer_out") return "Transf. enviada"
     return amount >= 0 ? "Receita" : "Despesa"
   }
 
@@ -434,7 +546,33 @@ export default function ImportPage() {
     setTransactions(built)
     setDescriptionOverrides({})
     setIgnoredOverrides({})
+    setCategoryOverrides({})
+    setAutoCategoriesApplied(false)
   }, [csvData, csvMap, fileType])
+
+  useEffect(() => {
+    if (autoCategoriesApplied) return
+    if (transactions.length === 0) return
+    if (!categories || categories.length === 0) return
+
+    setCategoryOverrides((prev) => {
+      let changed = false
+      const next = { ...prev }
+      for (const tx of transactions) {
+        if (next[tx.id]) continue
+        const rowType = resolveRowType(tx)
+        const baseType = resolveBaseType(tx)
+        const suggested = suggestCategoryId(tx, baseType, rowType)
+        if (suggested) {
+          next[tx.id] = suggested
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+
+    setAutoCategoriesApplied(true)
+  }, [autoCategoriesApplied, categories, transactions, autoDetectInvestments])
 
   const ensurePeriod = async (userId: string, date: string) => {
     const [year, month] = date.split("-")
@@ -471,11 +609,13 @@ export default function ImportPage() {
     const activeRows = transactions
       .map((tx) => {
         const type = resolveRowType(tx)
+        const baseType = resolveBaseType(tx)
         const skipped = isRowSkipped(tx, type)
         return {
           id: tx.id,
           tx,
           type,
+          baseType,
           skipped,
         }
       })
@@ -518,31 +658,9 @@ export default function ImportPage() {
         console.log("✅ Periodo criado/encontrado:", periodId)
         
         const resolvedName = getTxDescription(tx)
+        const categoryId = categoryOverrides[tx.id] || null
 
-        if (row.type === "investment_out" || row.type === "market_out") {
-          console.log("💰 Inserindo reserva/investimento")
-          const { error } = await supabase.from("reserves_investments").insert({
-            user_id: user.id,
-            name: resolvedName,
-            value: Math.abs(tx.amount),
-            date: tx.date,
-            type: row.type === "market_out" ? "market" : "investment",
-          })
-          if (error) {
-            console.error("❌ Erro ao importar reserva:", error)
-            failed++
-          } else {
-            console.log("✅ Reserva importada")
-            imported++
-          }
-          continue
-        }
-
-        const isIncomeType =
-          row.type === "income" ||
-          row.type === "transfer_in" ||
-          row.type === "investment_income" ||
-          row.type === "market_income"
+        const isIncomeType = row.baseType === "income"
 
         if (isIncomeType) {
           console.log("💵 Inserindo receita")
@@ -552,7 +670,7 @@ export default function ImportPage() {
             name: resolvedName,
             value: tx.amount,
             date: tx.date,
-            category_id: null,
+            category_id: categoryId,
           })
           if (error) {
             console.error("❌ Erro ao importar receita:", error)
@@ -569,7 +687,7 @@ export default function ImportPage() {
             name: resolvedName,
             value: Math.abs(tx.amount),
             date: tx.date,
-            category_id: null,
+            category_id: categoryId,
             payment_method: resolveExpensePaymentMethod(tx, row.type),
             is_essential: false,
           })
@@ -904,21 +1022,17 @@ export default function ImportPage() {
                     <TableRow>
                       <TableHead>Data</TableHead>
                       <TableHead>Descricao</TableHead>
+                      <TableHead>Categoria</TableHead>
                       <TableHead>Valor</TableHead>
                       <TableHead>Tipo</TableHead>
-                      <TableHead>Status</TableHead>
                       <TableHead>Acoes</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {previewRows.map((row) => {
                       const { tx } = row
-                      const isIncomeType =
-                        row.type === "income" ||
-                        row.type === "transfer_in" ||
-                        row.type === "investment_income" ||
-                        row.type === "market_income"
-                      const isExpenseType = row.type === "expense" || row.type === "transfer_out"
+                      const isIncomeType = row.baseType === "income"
+                      const isExpenseType = row.baseType === "expense"
                       return (
                         <TableRow key={row.id} className={row.skipped ? "opacity-60" : undefined}>
                           <TableCell className="whitespace-nowrap">
@@ -954,6 +1068,34 @@ export default function ImportPage() {
                               )}
                             </div>
                           </TableCell>
+                          <TableCell>
+                            <Select
+                              value={categoryOverrides[row.id] ?? "none"}
+                              onValueChange={(value) => {
+                                setCategoryOverrides((prev) => {
+                                  const next = { ...prev }
+                                  if (value === "none") delete next[row.id]
+                                  else next[row.id] = value
+                                  return next
+                                })
+                              }}
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue placeholder="Categoria" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Sem categoria</SelectItem>
+                                {(row.baseType === "income"
+                                  ? incomeCategories
+                                  : expenseCategories
+                                ).map((cat) => (
+                                  <SelectItem key={cat.id} value={cat.id}>
+                                    {cat.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
                           <TableCell className="whitespace-nowrap">
                             <span
                               className={
@@ -969,19 +1111,16 @@ export default function ImportPage() {
                           </TableCell>
                           <TableCell>{getTypeLabel(row.type, tx.amount)}</TableCell>
                           <TableCell>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               {row.skipped && <Badge variant="outline">Ignorada</Badge>}
-                              {!row.skipped && <Badge variant="secondary">Ativa</Badge>}
+                              <Button
+                                variant={row.skipped ? "outline" : "ghost"}
+                                size="sm"
+                                onClick={() => toggleIgnored(row.id)}
+                              >
+                                {row.skipped ? "Reativar" : "Ignorar"}
+                              </Button>
                             </div>
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant={row.skipped ? "outline" : "ghost"}
-                              size="sm"
-                              onClick={() => toggleIgnored(row.id)}
-                            >
-                              {row.skipped ? "Reativar" : "Ignorar"}
-                            </Button>
                           </TableCell>
                         </TableRow>
                       )
