@@ -536,6 +536,9 @@ export default function ImportPage() {
     previewMaxValue !== ""
 
   const getTypeLabel = (type: string, amount: number) => {
+    if (type === "investment_out" || type === "investment_income") return "Investimento"
+    if (type === "market_out" || type === "market_income") return "Carteira"
+    if (type === "transfer_in" || type === "transfer_out") return "Transferencia"
     return amount >= 0 ? "Receita" : "Despesa"
   }
 
@@ -660,9 +663,29 @@ export default function ImportPage() {
         const resolvedName = getTxDescription(tx)
         const categoryId = categoryOverrides[tx.id] || null
 
+        const isInvestmentType =
+          row.type === "investment_out" || row.type === "investment_income"
+        const isMarketType = row.type === "market_out" || row.type === "market_income"
         const isIncomeType = row.baseType === "income"
 
-        if (isIncomeType) {
+        if (isInvestmentType || isMarketType) {
+          const reserveType = isMarketType ? "market" : "investment"
+          console.log("🏦 Inserindo reserva/investimento")
+          const { error } = await supabase.from("reserves_investments").insert({
+            user_id: user.id,
+            name: resolvedName,
+            type: reserveType,
+            value: Math.abs(tx.amount),
+            date: tx.date,
+          })
+          if (error) {
+            console.error("❌ Erro ao importar reserva/investimento:", error)
+            failed++
+          } else {
+            console.log("✅ Reserva/investimento importado")
+            imported++
+          }
+        } else if (isIncomeType) {
           console.log("💵 Inserindo receita")
           const { error } = await supabase.from("incomes").insert({
             user_id: user.id,

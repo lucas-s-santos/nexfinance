@@ -52,8 +52,9 @@ export function parseCsv(content: string): CsvData {
     return { headers: [], rows: [] }
   }
 
-  const delimiter = detectDelimiter(lines[0])
-  const headers = splitCsvLine(lines[0], delimiter).map((h) => h.trim())
+  const firstLine = lines[0].replace(/^\uFEFF/, "")
+  const delimiter = detectDelimiter(firstLine)
+  const headers = splitCsvLine(firstLine, delimiter).map((h) => h.trim())
   const rows = lines.slice(1).map((line) => splitCsvLine(line, delimiter))
 
   return { headers, rows }
