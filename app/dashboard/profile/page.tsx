@@ -9,13 +9,26 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { NotificationsPanel } from "@/components/dashboard/notifications-panel"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   applySystemColor,
   DEFAULT_SYSTEM_COLOR,
   normalizeHex,
 } from "@/lib/theme"
 import { Palette, ShieldCheck, Sparkles, UserCircle2 } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 export default function ProfilePage() {
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [displayName, setDisplayName] = useState<string | null>(null)
   const [displayNameEdit, setDisplayNameEdit] = useState("")
@@ -24,6 +37,9 @@ export default function ProfilePage() {
   const [email, setEmail] = useState<string | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [createdAt, setCreatedAt] = useState<string | null>(null)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState("")
 
   const [accentHex, setAccentHex] = useState(DEFAULT_SYSTEM_COLOR)
   const [customHex, setCustomHex] = useState(DEFAULT_SYSTEM_COLOR)
@@ -146,6 +162,30 @@ export default function ProfilePage() {
     setCustomHex(DEFAULT_SYSTEM_COLOR)
     applySystemColor(DEFAULT_SYSTEM_COLOR)
     scheduleColorSave(DEFAULT_SYSTEM_COLOR)
+  }
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true)
+    try {
+      const response = await fetch("/api/delete-account", {
+        method: "POST",
+      })
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data?.error || "Erro ao excluir a conta")
+      }
+      const supabase = createClient()
+      await supabase.auth.signOut()
+      router.push("/")
+      toast.success("Conta excluida com sucesso")
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error ? error.message : "Erro ao excluir a conta"
+      )
+    } finally {
+      setDeleting(false)
+      setDeleteOpen(false)
+    }
   }
 
   const quickColors = [
@@ -348,6 +388,65 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+
+      <Card className="border-destructive/30 bg-card/60">
+        <CardHeader>
+          <CardTitle className="text-base">Zona de risco</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 text-sm">
+          <p className="text-muted-foreground">
+            Excluir sua conta remove todos os seus dados e nao pode ser
+            desfeito.
+          </p>
+          <div>
+            <Button
+              variant="destructive"
+              onClick={() => setDeleteOpen(true)}
+              disabled={deleting}
+            >
+              {deleting ? "Excluindo..." : "Excluir conta"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <AlertDialog
+        open={deleteOpen}
+        onOpenChange={(open) => {
+          setDeleteOpen(open)
+          if (!open) setDeleteConfirm("")
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir conta</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acao apaga todos os seus dados e nao pode ser desfeita.
+              Para confirmar, digite "DELETAR" abaixo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="grid gap-2">
+            <Label htmlFor="delete-confirm">Confirmacao</Label>
+            <Input
+              id="delete-confirm"
+              value={deleteConfirm}
+              onChange={(e) => setDeleteConfirm(e.target.value)}
+              placeholder="DELETAR"
+              className="h-10"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteAccount}
+              disabled={deleting || deleteConfirm.trim() !== "DELETAR"}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Excluindo..." : "Excluir conta"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <NotificationsPanel
         title="Notificacoes"

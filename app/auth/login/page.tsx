@@ -48,25 +48,27 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-svh w-full items-center justify-center px-6 py-12">
-      <div className="w-full max-w-md">
-        <div className="mb-8 flex items-center justify-center">
+    <div className="flex min-h-svh w-full items-start justify-center bg-gradient-to-b from-background to-muted/30 px-4 py-10 sm:items-center sm:px-6 sm:py-12">
+      <div className="w-full max-w-sm sm:max-w-md">
+        <div className="mb-6 flex items-center justify-center sm:mb-8">
           <img
             src="/logo01.jpg"
             alt="NexFinance"
-            className="h-24 w-auto"
+            className="h-16 w-auto sm:h-20"
           />
         </div>
-        <Card className="glass-panel border-0">
+        <Card className="glass-panel border-0 shadow-sm">
           <CardHeader>
-            <CardTitle className="text-2xl font-display">Entrar</CardTitle>
+            <CardTitle className="text-2xl font-display sm:text-3xl">
+              Entrar
+            </CardTitle>
             <CardDescription>
               Digite seu e-mail e senha para acessar sua conta.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleLogin}>
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-3 sm:gap-4">
                 <div className="grid gap-2">
                   <Label htmlFor="email">E-mail</Label>
                   <Input
@@ -91,7 +93,11 @@ export default function LoginPage() {
                 {error && (
                   <p className="text-sm text-destructive">{error}</p>
                 )}
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button
+                  type="submit"
+                  className="h-11 w-full"
+                  disabled={isLoading}
+                >
                   {isLoading ? "Entrando..." : "Entrar"}
                   {!isLoading && <ArrowRight className="ml-2 h-4 w-4" />}
                 </Button>

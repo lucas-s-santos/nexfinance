@@ -5,7 +5,7 @@ import { ArrowRight, Shield, TrendingUp, Radar, Sparkles } from "lucide-react"
 export default function HomePage() {
   return (
     <div className="min-h-svh bg-tech text-foreground">
-      <header className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-6">
+      <header className="mx-auto flex w-full max-w-6xl flex-col items-start justify-between gap-6 px-6 py-6 sm:flex-row sm:items-center">
         <div className="flex items-center gap-3">
           <img
             src="/logo01.jpg"
@@ -13,7 +13,7 @@ export default function HomePage() {
             className="h-9 w-auto rounded-md"
           />
           <div>
-            <p className="text-sm uppercase tracking-[0.3em] text-muted-foreground">
+            <p className="text-[10px] uppercase tracking-[0.4em] text-muted-foreground">
               NexFinance
             </p>
             <p className="text-xs text-muted-foreground">
@@ -21,11 +21,14 @@ export default function HomePage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" asChild>
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+          <Button variant="ghost" asChild className="w-full sm:w-auto">
             <Link href="/auth/login">Entrar</Link>
           </Button>
-          <Button asChild className="shadow-[0_0_30px_rgba(22,199,154,0.35)]">
+          <Button
+            asChild
+            className="w-full shadow-[0_0_30px_rgba(22,199,154,0.35)] sm:w-auto"
+          >
             <Link href="/auth/sign-up">
               Criar Conta
               <ArrowRight className="ml-2 h-4 w-4" />
@@ -34,9 +37,9 @@ export default function HomePage() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-16 px-6 pb-16 pt-8">
+      <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-12 px-6 pb-16 pt-4 sm:pt-8">
         <section className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-          <div className="space-y-6">
+          <div className="space-y-5">
             <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-card/40 px-4 py-2 text-xs uppercase tracking-[0.2em] text-muted-foreground">
               <Sparkles className="h-3.5 w-3.5 text-primary" />
               Inteligencia financeira
@@ -48,11 +51,15 @@ export default function HomePage() {
               Controle receitas, despesas e metas com dashboards inteligentes,
               projecoes mensais e uma experiencia fluida para desktop e mobile.
             </p>
-            <div className="flex flex-wrap items-center gap-4">
-              <Button size="lg" asChild className="shadow-[0_0_30px_rgba(22,199,154,0.35)]">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Button
+                size="lg"
+                asChild
+                className="w-full shadow-[0_0_30px_rgba(22,199,154,0.35)] sm:w-auto"
+              >
                 <Link href="/auth/sign-up">Comecar agora</Link>
               </Button>
-              <Button size="lg" variant="outline" asChild>
+              <Button size="lg" variant="outline" asChild className="w-full sm:w-auto">
                 <Link href="/auth/login">Ja tenho conta</Link>
               </Button>
             </div>

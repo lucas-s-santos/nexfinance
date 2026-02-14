@@ -14,6 +14,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer"
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -24,10 +30,12 @@ import { MoneyInput } from "@/components/ui/money-input"
 import { Plus } from "lucide-react"
 import { toast } from "sonner"
 import { parseMoneyToNumber } from "@/lib/money"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 export function QuickAdd() {
   const { periodId } = usePeriod()
   const { data: categories } = useCategories()
+  const isMobile = useIsMobile()
   const [open, setOpen] = useState(false)
   const [type, setType] = useState("expense")
   const [name, setName] = useState("")
@@ -88,84 +96,108 @@ export function QuickAdd() {
     setValue("")
   }
 
+  const formContent = (
+    <div className="grid gap-3">
+      <div className="grid gap-2">
+        <Label>Tipo</Label>
+        <Select value={type} onValueChange={setType}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="expense">Despesa</SelectItem>
+            <SelectItem value="income">Receita</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="grid gap-2">
+        <Label>Nome</Label>
+        <Input value={name} onChange={(e) => setName(e.target.value)} />
+      </div>
+      <div className="grid gap-2">
+        <Label>Valor</Label>
+        <MoneyInput value={value} onValueChange={setValue} />
+      </div>
+      <div className="grid gap-2">
+        <Label>Data</Label>
+        <Input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+        />
+      </div>
+      <div className="grid gap-2">
+        <Label>Categoria</Label>
+        <Select
+          value={categoryId || "none"}
+          onValueChange={(v) => setCategoryId(v === "none" ? "" : v)}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Sem categoria" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">Sem categoria</SelectItem>
+            {filteredCategories.map((cat) => (
+              <SelectItem key={cat.id} value={cat.id}>
+                {cat.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      {type === "expense" && (
+        <div className="grid gap-2">
+          <Label>Metodo</Label>
+          <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="debit">Cartao de Debito</SelectItem>
+              <SelectItem value="credit">Cartao de Credito</SelectItem>
+              <SelectItem value="voucher">Investimento</SelectItem>
+              <SelectItem value="pix">Pix</SelectItem>
+              <SelectItem value="cash">Dinheiro</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+      <Button onClick={handleSave} disabled={saving} className="h-11 w-full">
+        {saving ? "Salvando..." : "Salvar"}
+      </Button>
+    </div>
+  )
+
   return (
     <>
       <Button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.35)] lg:hidden"
+        className="fixed bottom-[4.75rem] left-1/2 z-40 h-12 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 rounded-full shadow-[0_12px_30px_rgba(0,0,0,0.35)] lg:hidden"
         aria-label="Adicionar rapido"
       >
-        <Plus className="h-6 w-6" />
+        <Plus className="mr-2 h-5 w-5" />
+        Adicionar rapido
       </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Adicionar rapido</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-3">
-            <div className="grid gap-2">
-              <Label>Tipo</Label>
-              <Select value={type} onValueChange={setType}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="expense">Despesa</SelectItem>
-                  <SelectItem value="income">Receita</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label>Nome</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div className="grid gap-2">
-              <Label>Valor</Label>
-              <MoneyInput value={value} onValueChange={setValue} />
-            </div>
-            <div className="grid gap-2">
-              <Label>Data</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            </div>
-            <div className="grid gap-2">
-              <Label>Categoria</Label>
-              <Select value={categoryId || "none"} onValueChange={(v) => setCategoryId(v === "none" ? "" : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Sem categoria" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sem categoria</SelectItem>
-                  {filteredCategories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {type === "expense" && (
-              <div className="grid gap-2">
-                <Label>Metodo</Label>
-                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="debit">Cartao de Debito</SelectItem>
-                    <SelectItem value="credit">Cartao de Credito</SelectItem>
-                    <SelectItem value="voucher">Investimento</SelectItem>
-                    <SelectItem value="pix">Pix</SelectItem>
-                    <SelectItem value="cash">Dinheiro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? "Salvando..." : "Salvar"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+
+      {isMobile ? (
+        <Drawer open={open} onOpenChange={setOpen}>
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>Adicionar rapido</DrawerTitle>
+            </DrawerHeader>
+            <div className="px-4 pb-6">{formContent}</div>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Adicionar rapido</DialogTitle>
+            </DialogHeader>
+            {formContent}
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   )
 }

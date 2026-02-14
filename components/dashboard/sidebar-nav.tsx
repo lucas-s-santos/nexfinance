@@ -68,18 +68,15 @@ export function SidebarNav() {
   const currentYear = new Date().getFullYear()
   const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i)
 
+  const bottomNavItems = [
+    { href: "/dashboard", label: "Inicio", icon: LayoutDashboard },
+    { href: "/dashboard/expenses", label: "Despesas", icon: TrendingDown },
+    { href: "/dashboard/incomes", label: "Receitas", icon: TrendingUp },
+    { href: "/dashboard/reports", label: "Relatorios", icon: FileText },
+  ]
+
   return (
     <>
-      {/* Mobile toggle */}
-      <button
-        type="button"
-        onClick={() => setMobileOpen(!mobileOpen)}
-        className="fixed left-4 top-4 z-50 flex h-11 w-11 items-center justify-center rounded-xl border border-sidebar-border bg-sidebar text-sidebar-foreground shadow-[0_10px_30px_rgba(0,0,0,0.35)] lg:hidden"
-        aria-label="Toggle menu"
-      >
-        {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-      </button>
-
       {/* Overlay */}
       {mobileOpen && (
         <div
@@ -93,7 +90,7 @@ export function SidebarNav() {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-sidebar text-sidebar-foreground transition-transform duration-200 lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-sidebar pb-24 text-sidebar-foreground transition-transform duration-200 lg:translate-x-0 lg:pb-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -199,6 +196,48 @@ export function SidebarNav() {
           </Button>
         </div>
       </aside>
+
+      {/* Mobile bottom nav */}
+      <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-border/70 bg-background/80 px-2 py-2 backdrop-blur lg:hidden">
+        <div className="mx-auto flex max-w-md items-center justify-between">
+          {bottomNavItems.map((item) => {
+            const isActive =
+              item.href === "/dashboard"
+                ? pathname === "/dashboard"
+                : pathname.startsWith(item.href)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMobileOpen(false)}
+                className={cn(
+                  "flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-1 text-[11px] font-medium transition-colors",
+                  isActive
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <item.icon className="h-5 w-5" />
+                {item.label}
+              </Link>
+            )
+          })}
+          <button
+            type="button"
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className={cn(
+              "flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-1 text-[11px] font-medium transition-colors",
+              mobileOpen
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+            aria-label="Abrir menu"
+          >
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            Menu
+          </button>
+        </div>
+      </nav>
     </>
   )
 }
