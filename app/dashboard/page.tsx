@@ -11,10 +11,19 @@ import {
   useGoals,
   useReserves,
 } from "@/lib/use-financial-data"
-import { SummaryCards } from "@/components/dashboard/summary-cards"
+import { calculateFinancialSummary } from "@/lib/sync-database"
 import { DashboardCharts } from "@/components/dashboard/dashboard-charts"
 import { MonthlyClosing } from "@/components/dashboard/monthly-closing"
-import { formatCurrency, MONTHS } from "@/lib/format"
+import { ExpensesBreakdown } from "@/components/dashboard/expenses-breakdown"
+import { EssentialVsDiscretionary } from "@/components/dashboard/essential-vs-discretionary"
+import { ExtraIncome } from "@/components/dashboard/extra-income"
+import { HeroStats } from "@/components/dashboard/hero-stats"
+import { SynchronizedBalance } from "@/components/dashboard/synchronized-balance"
+import { QuickActions } from "@/components/dashboard/quick-actions"
+import { GoalsCard } from "@/components/dashboard/goals-card"
+import { UpcomingBills } from "@/components/dashboard/upcoming-bills"
+import { MonthlyTrend } from "@/components/dashboard/monthly-trend"
+import { MONTHS } from "@/lib/format"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { Eye, EyeOff } from "lucide-react"
@@ -51,6 +60,18 @@ export default function DashboardPage() {
     setShowValues(next)
     window.localStorage.setItem(storageKey, String(next))
   }
+
+  // Centralizar todos os cálculos usando uma única função
+  const financialSummary = useMemo(() => {
+    return calculateFinancialSummary(
+      incomes ?? [],
+      expenses ?? [],
+      reserves ?? [],
+      categories,
+      month,
+      year
+    )
+  }, [incomes, expenses, reserves, categories, month, year])
 
   const notificationSeeds = useMemo(() => {
     if (!periodId) {
@@ -158,7 +179,7 @@ export default function DashboardPage() {
       rows.push({
         type: "reserve_update",
         title: "Reserva atualizada",
-        message: `Voce adicionou ${formatCurrency(recentReserveTotal)} em reservas nos ultimos 7 dias.`,
+        message: `Voce adicionou ${require("@/lib/format").formatCurrency(recentReserveTotal)} em reservas nos ultimos 7 dias.`,
         threshold: 7,
       })
     } else {
@@ -220,41 +241,10 @@ export default function DashboardPage() {
     reservesLoading,
   ])
 
-  const totalIncome = (incomes ?? []).reduce(
-    (sum, i) => sum + Number(i.value),
-    0
-  )
-  const totalExpenses = (expenses ?? []).reduce(
-    (sum, e) => sum + Number(e.value),
-    0
-  )
-  const creditUsage = (expenses ?? [])
-    .filter((e) => e.payment_method === "credit")
-    .reduce((sum, e) => sum + Number(e.value), 0)
-  const debitUsage = (expenses ?? [])
-    .filter((e) => e.payment_method === "debit")
-    .reduce((sum, e) => sum + Number(e.value), 0)
-  const isSamePeriod = (date: string) => {
-    const [y, m] = date.split("-").map(Number)
-    return y === year && m === month
-  }
-  const investmentUsage = (reserves ?? [])
-    .filter((item) =>
-      (item.type === "investment" || item.type === "market") &&
-      isSamePeriod(item.date)
-    )
-    .reduce((sum, item) => sum + Number(item.value), 0)
-
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground">
-            {MONTHS[month - 1]} de {year}
-          </p>
-        </div>
+      <div className="flex items-center justify-end gap-3">
         <Button
           variant="outline"
           size="sm"
@@ -266,7 +256,7 @@ export default function DashboardPage() {
           ) : (
             <Eye className="mr-2 h-4 w-4" />
           )}
-          {showValues ? "Ocultar valores" : "Mostrar valores"}
+          {showValues ? "Ocultar" : "Mostrar"}
         </Button>
       </div>
 
@@ -284,27 +274,88 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          <SummaryCards
-            totalIncome={totalIncome}
-            totalExpenses={totalExpenses}
-            creditUsage={creditUsage}
-            debitUsage={debitUsage}
-            investmentUsage={investmentUsage}
+          {/* Hero Section - Resumo Principal */}
+          <HeroStats
+            totalIncome={financialSummary.totalIncome}
+            totalExpenses={financialSummary.totalExpenses}
+            remaining={financialSummary.balance}
+            showValues={showValues}
+            month={month}
+            year={year}
+            creditUsage={financialSummary.creditUsage}
+            debitUsage={financialSummary.debitUsage}
+            investmentUsage={financialSummary.investmentUsage}
+            accountName="nubank"
+          />
+
+          {/* Synchronized Balance - Sincronização com Banco */}
+          <SynchronizedBalance 
+            systemBalance={financialSummary.balance}
+            accountName="nubank"
             showValues={showValues}
           />
-          <MonthlyClosing
-            totalIncome={totalIncome}
-            totalExpenses={totalExpenses}
-            bills={bills ?? []}
-            showValues={showValues}
-          />
-          <DashboardCharts
+
+          {/* Quick Actions - Botões de Ação Rápida */}
+          <QuickActions />
+
+          {/* Goals and Bills - Metas e Contas a Pagar */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <GoalsCard goals={goals ?? []} showValues={showValues} />
+            <UpcomingBills bills={bills ?? []} showValues={showValues} />
+          </div>
+
+          {/* Monthly Trend - Tendência Mensal */}
+          <MonthlyTrend
             incomes={incomes ?? []}
             expenses={expenses ?? []}
-            forecastData={forecastData}
-            categoryMap={new Map(categories.map((c) => [c.id, c.name]))}
             showValues={showValues}
+            month={month}
+            year={year}
           />
+
+          {/* Analysis Section - Análise Detalhada */}
+          <div className="space-y-6 pt-6 border-t">
+            {/* Extra Income - Rendas Extras */}
+            <ExtraIncome
+              incomes={incomes ?? []}
+              categories={categories}
+              salaryTotal={financialSummary.salaryTotal}
+              showValues={showValues}
+              month={month}
+              year={year}
+            />
+
+            {/* Essential vs Discretionary - Essencial vs Discricionário */}
+            <EssentialVsDiscretionary
+              expenses={expenses ?? []}
+              income={financialSummary.totalIncome}
+              showValues={showValues}
+            />
+
+            {/* Expenses Breakdown - Gastos por Categoria */}
+            <ExpensesBreakdown
+              expenses={expenses ?? []}
+              categories={categories}
+              showValues={showValues}
+            />
+          </div>
+
+          {/* Charts Section - Gráficos e Visualizações */}
+          <div className="space-y-6 pt-6 border-t">
+            <MonthlyClosing
+              totalIncome={financialSummary.totalIncome}
+              totalExpenses={financialSummary.totalExpenses}
+              bills={bills ?? []}
+              showValues={showValues}
+            />
+            <DashboardCharts
+              incomes={incomes ?? []}
+              expenses={expenses ?? []}
+              forecastData={forecastData}
+              categoryMap={new Map(categories.map((c) => [c.id, c.name]))}
+              showValues={showValues}
+            />
+          </div>
         </>
       )}
     </div>

@@ -578,29 +578,43 @@ export default function ImportPage() {
   }, [autoCategoriesApplied, categories, transactions, autoDetectInvestments])
 
   const ensurePeriod = async (userId: string, date: string) => {
-    const [year, month] = date.split("-")
-    const supabase = createClient()
-    const { data: existing } = await supabase
-      .from("financial_periods")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("month", Number(month))
-      .eq("year", Number(year))
-      .single()
+    try {
+      const [year, month] = date.split("-")
+      const supabase = createClient()
+      
+      // Busca período existente
+      const { data: existing, error: selectError } = await supabase
+        .from("financial_periods")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("month", Number(month))
+        .eq("year", Number(year))
 
-    if (existing?.id) return existing.id
+      // Se encontrou, retorna o ID
+      if (existing && existing.length > 0) {
+        return existing[0].id
+      }
 
-    const { data: newPeriod } = await supabase
-      .from("financial_periods")
-      .insert({
-        user_id: userId,
-        month: Number(month),
-        year: Number(year),
-      })
-      .select("id")
-      .single()
+      // Se não encontrou, cria novo
+      const { data: newPeriod, error: insertError } = await supabase
+        .from("financial_periods")
+        .insert({
+          user_id: userId,
+          month: Number(month),
+          year: Number(year),
+        })
+        .select("id")
 
-    return newPeriod?.id ?? null
+      if (insertError) {
+        console.error("❌ Erro ao inserir periodo:", insertError.message)
+        return null
+      }
+
+      return newPeriod?.[0]?.id ?? null
+    } catch (error) {
+      console.error("❌ Erro ao processar periodo:", error)
+      return null
+    }
   }
 
   const handleImport = async () => {
@@ -654,7 +668,7 @@ export default function ImportPage() {
         
         const periodId = await ensurePeriod(user.id, tx.date)
         if (!periodId) {
-          console.error("❌ Erro ao criar periodo para", tx.date)
+          console.error("❌ Erro ao criar periodo para", tx.date, "- Transacao skipped:", tx.name)
           failed++
           continue
         }

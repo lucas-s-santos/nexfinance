@@ -10,3 +10,11 @@ node_modules/
 .next/
 .env*.local
 .DS_Store
+
+# Scripts com dados sensíveis
+scripts/999_clean_user_data.sql
+
+# Documentação excessiva
+IMPLEMENTATION_SUMMARY.md
+README_SYNC_FINAL.md
+SETUP_CHECKLIST.md
