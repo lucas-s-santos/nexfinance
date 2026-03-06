@@ -1,7 +1,6 @@
 "use client"
 
 import { formatCurrency, MONTHS } from "@/lib/format"
-import { useAccountBalance } from "@/lib/use-account-balance"
 import {
   TrendingUp,
   TrendingDown,
@@ -10,12 +9,9 @@ import {
   Banknote,
   PiggyBank,
   Target,
-  Zap,
-  AlertCircle,
   Calendar,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { cn } from "@/lib/utils"
 
 interface HeroStatsProps {
@@ -28,7 +24,6 @@ interface HeroStatsProps {
   creditUsage: number
   debitUsage: number
   investmentUsage: number
-  accountName?: string
 }
 
 export function HeroStats({
@@ -41,24 +36,16 @@ export function HeroStats({
   creditUsage,
   debitUsage,
   investmentUsage,
-  accountName = "nubank",
 }: HeroStatsProps) {
-  const { balance: bankBalance } = useAccountBalance(accountName)
-  
   const renderValue = (value: number) =>
     showValues ? formatCurrency(value) : "R$ ••••"
 
-  // Usar saldo do banco se disponível, senão usar o saldo calculado
-  const displayBalance = bankBalance?.current_balance ?? remaining
-  const hasSyncIssue = Math.abs(displayBalance - remaining) > 0.01
+  const displayBalance = remaining
 
   const expensePercentage = totalIncome > 0 ? (totalExpenses / totalIncome) * 100 : 0
   const savingsPercentage = totalIncome > 0 ? (displayBalance / totalIncome) * 100 : 0
-  const savingsGoalPercentage = Math.max(0, Math.min(savingsPercentage, 100))
-
   const isPositive = displayBalance >= 0
   const healthColor = expensePercentage <= 50 ? "text-success" : expensePercentage <= 75 ? "text-warning" : "text-destructive"
-  const healthBg = expensePercentage <= 50 ? "bg-success/10" : expensePercentage <= 75 ? "bg-warning/10" : "bg-destructive/10"
 
   return (
     <div className="space-y-6">
@@ -86,14 +73,6 @@ export function HeroStats({
                 <div className="flex items-center gap-2">
                   <Wallet className={cn("h-5 w-5", isPositive ? "text-success" : "text-destructive")} />
                   <p className="text-sm text-muted-foreground">Saldo Restante</p>
-                  {bankBalance && (
-                    <span className={cn(
-                      "text-xs px-2 py-1 rounded-full",
-                      hasSyncIssue ? "bg-warning/20 text-warning" : "bg-success/20 text-success"
-                    )}>
-                      {hasSyncIssue ? "Desincronizado" : "Sincronizado"}
-                    </span>
-                  )}
                 </div>
                 <p className={cn(
                   "text-4xl font-bold",
@@ -101,14 +80,6 @@ export function HeroStats({
                 )}>
                   {renderValue(displayBalance)}
                 </p>
-                {hasSyncIssue && (
-                  <Alert variant="destructive" className="p-3">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription className="text-xs">
-                      Saldo do sistema e do Nubank diferem em {renderValue(Math.abs(displayBalance - remaining))}
-                    </AlertDescription>
-                  </Alert>
-                )}
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>Situação financeira</span>

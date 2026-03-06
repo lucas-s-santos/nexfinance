@@ -18,7 +18,6 @@ import { ExpensesBreakdown } from "@/components/dashboard/expenses-breakdown"
 import { EssentialVsDiscretionary } from "@/components/dashboard/essential-vs-discretionary"
 import { ExtraIncome } from "@/components/dashboard/extra-income"
 import { HeroStats } from "@/components/dashboard/hero-stats"
-import { SynchronizedBalance } from "@/components/dashboard/synchronized-balance"
 import { QuickActions } from "@/components/dashboard/quick-actions"
 import { GoalsCard } from "@/components/dashboard/goals-card"
 import { UpcomingBills } from "@/components/dashboard/upcoming-bills"
@@ -285,14 +284,6 @@ export default function DashboardPage() {
             creditUsage={financialSummary.creditUsage}
             debitUsage={financialSummary.debitUsage}
             investmentUsage={financialSummary.investmentUsage}
-            accountName="nubank"
-          />
-
-          {/* Synchronized Balance - Sincronização com Banco */}
-          <SynchronizedBalance 
-            systemBalance={financialSummary.balance}
-            accountName="nubank"
-            showValues={showValues}
           />
 
           {/* Quick Actions - Botões de Ação Rápida */}

@@ -18,7 +18,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import {
   Collapsible,
@@ -69,9 +68,7 @@ export default function ImportPage() {
   const [categoryOverrides, setCategoryOverrides] = useState<Record<string, string>>({})
   const [autoCategoriesApplied, setAutoCategoriesApplied] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [ignoreTransfers, setIgnoreTransfers] = useState(false)
-  const [autoDetectInvestments, setAutoDetectInvestments] = useState(true)
-  const [expensePaymentMethod] = useState("debit")
+  const expensePaymentMethod = "debit"
   const [showMapping, setShowMapping] = useState(false)
   const [showAll, setShowAll] = useState(false)
   const [previewSearch, setPreviewSearch] = useState("")
@@ -85,46 +82,6 @@ export default function ImportPage() {
   const { data: categories } = useCategories()
   const incomeCategories = (categories ?? []).filter((cat) => cat.type === "income")
   const expenseCategories = (categories ?? []).filter((cat) => cat.type === "expense")
-
-  const investmentKeywords = [
-    "aplicacao rdb",
-    "aplicacao cdb",
-    "aplicacao em investimento",
-    "aplicacao",
-    "investimento",
-    "nuinvest",
-    "transferencia de saldo nuinvest",
-    "tesouro",
-    "fundo",
-    "rdb",
-    "cdb",
-  ]
-
-  const investmentIncomeKeywords = [
-    "devolucao",
-    "rendimento",
-    "resgate",
-    "transferencia de saldo nuinvest",
-  ]
-
-  const marketKeywords = [
-    "compra de fii",
-    "fii",
-    "compra de criptomoedas",
-    "cripto",
-    "btc",
-  ]
-
-  const transferOutKeywords = [
-    "transferencia enviada pelo pix",
-    "transferencia enviada",
-  ]
-
-  const transferInKeywords = [
-    "transferencia recebida pelo pix",
-    "transferencia recebida pelo pix via open banking",
-    "transferencia recebida",
-  ]
 
   const categoryRules = [
     {
@@ -351,30 +308,9 @@ export default function ImportPage() {
 
   const suggestCategoryId = (
     tx: ImportTransaction,
-    baseType: "income" | "expense",
-    rowType: string
+    baseType: "income" | "expense"
   ) => {
     const normalized = normalizeDescription(tx)
-
-    if (rowType === "transfer_in" || rowType === "transfer_out") {
-      return (
-        findCategoryId(["Transferencias", "Transferência", "Transferencia"], baseType) ||
-        findCategoryId(["Outros"], baseType)
-      )
-    }
-
-    if (
-      rowType === "investment_out" ||
-      rowType === "investment_income" ||
-      rowType === "market_out" ||
-      rowType === "market_income" ||
-      hasKeyword(normalized, [...investmentKeywords, ...marketKeywords])
-    ) {
-      return (
-        findCategoryId(["Investimentos"], baseType) ||
-        findCategoryId(["Outros"], baseType)
-      )
-    }
 
     for (const rule of categoryRules) {
       if (rule.baseType !== baseType) continue
@@ -387,64 +323,31 @@ export default function ImportPage() {
     return null
   }
 
-  const classifyTransaction = (tx: ImportTransaction) => {
+  const resolveExpensePaymentMethod = (tx: ImportTransaction) => {
     const normalized = normalizeDescription(tx)
-
-    if (hasKeyword(normalized, transferOutKeywords)) return "transfer_out"
-    if (hasKeyword(normalized, transferInKeywords)) return "transfer_in"
-    if (hasKeyword(normalized, investmentIncomeKeywords)) return "investment_income"
-
-    if (hasKeyword(normalized, marketKeywords)) {
-      return tx.amount < 0 ? "market_out" : "market_income"
-    }
-    if (hasKeyword(normalized, investmentKeywords)) {
-      return tx.amount < 0 ? "investment_out" : "investment_income"
-    }
-
-    return tx.amount >= 0 ? "income" : "expense"
-  }
-
-  const resolveExpensePaymentMethod = (tx: ImportTransaction, type: string) => {
-    const normalized = normalizeDescription(tx)
-    if (type === "transfer_out" && normalized.includes("pix")) return "pix"
     if (normalized.includes("pix")) return "pix"
     return expensePaymentMethod
-  }
-
-  const resolveRowType = (tx: ImportTransaction) => {
-    return autoDetectInvestments
-      ? classifyTransaction(tx)
-      : tx.amount >= 0
-        ? "income"
-        : "expense"
   }
 
   const resolveBaseType = (tx: ImportTransaction) =>
     tx.amount >= 0 ? "income" : "expense"
 
-  const isTransferType = (type: string) =>
-    type === "transfer_in" || type === "transfer_out"
-
-  const isRowSkipped = (tx: ImportTransaction, type: string) =>
-    (ignoreTransfers && isTransferType(type)) || Boolean(ignoredOverrides[tx.id])
+  const isRowSkipped = (tx: ImportTransaction) =>
+    Boolean(ignoredOverrides[tx.id])
 
   const transactionRows = useMemo(() => {
     return transactions.map((tx) => {
-      const type = resolveRowType(tx)
-      const transfer = isTransferType(type)
-      const skipped = isRowSkipped(tx, type)
+      const skipped = isRowSkipped(tx)
       const baseType = resolveBaseType(tx)
 
       return {
         id: tx.id,
         tx,
-        transfer,
         skipped,
-        type,
         baseType,
       }
     })
-  }, [autoDetectInvestments, descriptionOverrides, ignoreTransfers, ignoredOverrides, transactions])
+  }, [ignoredOverrides, transactions])
 
   const toggleIgnored = (id: string) => {
     setIgnoredOverrides((prev) => ({
@@ -461,19 +364,15 @@ export default function ImportPage() {
       return cleaned ? cleaned : tx.name
     }
 
-    const matchesType = (rowType: string, baseType: string) => {
+    const matchesType = (baseType: string) => {
       if (previewType === "all") return true
       if (previewType === "income") return baseType === "income"
       if (previewType === "expense") return baseType === "expense"
-      if (previewType === "transfer") return rowType === "transfer_in" || rowType === "transfer_out"
-      if (previewType === "investment") return rowType === "investment_out" || rowType === "investment_income"
-      if (previewType === "market") return rowType === "market_out" || rowType === "market_income"
       return true
     }
 
     return transactionRows.filter((row) => {
-      if (!matchesType(row.type, row.baseType)) return false
-      if (ignoreTransfers && row.transfer) return false
+      if (!matchesType(row.baseType)) return false
       if (previewStatus === "ignored" && !row.skipped) return false
       if (previewStatus === "active" && row.skipped) return false
       if (previewDateFrom && row.tx.date < previewDateFrom) return false
@@ -494,7 +393,6 @@ export default function ImportPage() {
     previewSearch,
     previewStatus,
     previewType,
-    ignoreTransfers,
     transactionRows,
   ])
 
@@ -535,10 +433,7 @@ export default function ImportPage() {
     previewMinValue !== "" ||
     previewMaxValue !== ""
 
-  const getTypeLabel = (type: string, amount: number) => {
-    if (type === "investment_out" || type === "investment_income") return "Investimento"
-    if (type === "market_out" || type === "market_income") return "Carteira"
-    if (type === "transfer_in" || type === "transfer_out") return "Transferencia"
+  const getTypeLabel = (amount: number) => {
     return amount >= 0 ? "Receita" : "Despesa"
   }
 
@@ -563,9 +458,8 @@ export default function ImportPage() {
       const next = { ...prev }
       for (const tx of transactions) {
         if (next[tx.id]) continue
-        const rowType = resolveRowType(tx)
         const baseType = resolveBaseType(tx)
-        const suggested = suggestCategoryId(tx, baseType, rowType)
+        const suggested = suggestCategoryId(tx, baseType)
         if (suggested) {
           next[tx.id] = suggested
           changed = true
@@ -575,7 +469,7 @@ export default function ImportPage() {
     })
 
     setAutoCategoriesApplied(true)
-  }, [autoCategoriesApplied, categories, transactions, autoDetectInvestments])
+  }, [autoCategoriesApplied, categories, transactions])
 
   const ensurePeriod = async (userId: string, date: string) => {
     try {
@@ -583,7 +477,7 @@ export default function ImportPage() {
       const supabase = createClient()
       
       // Busca período existente
-      const { data: existing, error: selectError } = await supabase
+      const { data: existing } = await supabase
         .from("financial_periods")
         .select("id")
         .eq("user_id", userId)
@@ -606,13 +500,13 @@ export default function ImportPage() {
         .select("id")
 
       if (insertError) {
-        console.error("❌ Erro ao inserir periodo:", insertError.message)
+        console.error("Erro ao inserir periodo:", insertError.message)
         return null
       }
 
       return newPeriod?.[0]?.id ?? null
     } catch (error) {
-      console.error("❌ Erro ao processar periodo:", error)
+      console.error("Erro ao processar periodo:", error)
       return null
     }
   }
@@ -625,13 +519,11 @@ export default function ImportPage() {
 
     const activeRows = transactions
       .map((tx) => {
-        const type = resolveRowType(tx)
         const baseType = resolveBaseType(tx)
-        const skipped = isRowSkipped(tx, type)
+        const skipped = isRowSkipped(tx)
         return {
           id: tx.id,
           tx,
-          type,
           baseType,
           skipped,
         }
@@ -642,7 +534,7 @@ export default function ImportPage() {
       return
     }
 
-    console.log("🚀 Iniciando importacao de", activeRows.length, "transacoes")
+    console.log("Iniciando importacao de", activeRows.length, "transacoes")
     setLoading(true)
     const supabase = createClient()
     const {
@@ -650,13 +542,13 @@ export default function ImportPage() {
     } = await supabase.auth.getUser()
     
     if (!user) {
-      console.error("❌ Usuario nao autenticado")
+      console.error("Usuario nao autenticado")
       toast.error("Usuario nao autenticado")
       setLoading(false)
       return
     }
 
-    console.log("✅ Usuario autenticado:", user.id)
+    console.log("Usuario autenticado:", user.id)
 
     let imported = 0
     let failed = 0
@@ -664,60 +556,40 @@ export default function ImportPage() {
     for (const row of activeRows) {
       try {
         const tx = row.tx
-        console.log("📝 Processando transacao:", tx.date, tx.name, tx.amount)
+        console.log("Processando transacao:", tx.date, tx.name, tx.amount)
         
         const periodId = await ensurePeriod(user.id, tx.date)
         if (!periodId) {
-          console.error("❌ Erro ao criar periodo para", tx.date, "- Transacao skipped:", tx.name)
+          console.error("Erro ao criar periodo para", tx.date, "- Transacao skipped:", tx.name)
           failed++
           continue
         }
-        console.log("✅ Periodo criado/encontrado:", periodId)
+        console.log("Periodo criado/encontrado:", periodId)
         
         const resolvedName = getTxDescription(tx)
         const categoryId = categoryOverrides[tx.id] || null
 
-        const isInvestmentType =
-          row.type === "investment_out" || row.type === "investment_income"
-        const isMarketType = row.type === "market_out" || row.type === "market_income"
         const isIncomeType = row.baseType === "income"
 
-        if (isInvestmentType || isMarketType) {
-          const reserveType = isMarketType ? "market" : "investment"
-          console.log("🏦 Inserindo reserva/investimento")
-          const { error } = await supabase.from("reserves_investments").insert({
-            user_id: user.id,
-            name: resolvedName,
-            type: reserveType,
-            value: Math.abs(tx.amount),
-            date: tx.date,
-          })
-          if (error) {
-            console.error("❌ Erro ao importar reserva/investimento:", error)
-            failed++
-          } else {
-            console.log("✅ Reserva/investimento importado")
-            imported++
-          }
-        } else if (isIncomeType) {
-          console.log("💵 Inserindo receita")
+        if (isIncomeType) {
+          console.log("Inserindo receita")
           const { error } = await supabase.from("incomes").insert({
             user_id: user.id,
             period_id: periodId,
             name: resolvedName,
-            value: tx.amount,
+            value: Math.abs(tx.amount),
             date: tx.date,
             category_id: categoryId,
           })
           if (error) {
-            console.error("❌ Erro ao importar receita:", error)
+            console.error("Erro ao importar receita:", error)
             failed++
           } else {
-            console.log("✅ Receita importada")
+            console.log("Receita importada")
             imported++
           }
         } else {
-          console.log("💸 Inserindo despesa")
+          console.log("Inserindo despesa")
           const { error } = await supabase.from("expenses").insert({
             user_id: user.id,
             period_id: periodId,
@@ -725,25 +597,25 @@ export default function ImportPage() {
             value: Math.abs(tx.amount),
             date: tx.date,
             category_id: categoryId,
-            payment_method: resolveExpensePaymentMethod(tx, row.type),
+            payment_method: resolveExpensePaymentMethod(tx),
             is_essential: false,
           })
           if (error) {
-            console.error("❌ Erro ao importar despesa:", error)
+            console.error("Erro ao importar despesa:", error)
             failed++
           } else {
-            console.log("✅ Despesa importada")
+            console.log("Despesa importada")
             imported++
           }
         }
       } catch (error) {
-        console.error("❌ Erro ao processar transacao:", error)
+        console.error("Erro ao processar transacao:", error)
         failed++
       }
     }
 
     setLoading(false)
-    console.log("📊 Importacao finalizada:", imported, "sucesso,", failed, "falhas")
+    console.log("Importacao finalizada:", imported, "sucesso,", failed, "falhas")
     
     if (imported > 0) {
       toast.success(`${imported} transacao(oes) importada(s) com sucesso!`)
@@ -884,25 +756,11 @@ export default function ImportPage() {
             </Collapsible>
           )}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">Ignorar transferencias</p>
-                <p className="text-xs text-muted-foreground">
-                  Oculta transferencias do preview e importacao
-                </p>
-              </div>
-              <Switch checked={ignoreTransfers} onCheckedChange={setIgnoreTransfers} />
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-4 py-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">Detectar investimentos</p>
-                <p className="text-xs text-muted-foreground">
-                  Classifica automaticamente no import
-                </p>
-              </div>
-              <Switch checked={autoDetectInvestments} onCheckedChange={setAutoDetectInvestments} />
-            </div>
+          <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
+            <p className="text-sm font-medium text-foreground">Importacao simplificada</p>
+            <p className="text-xs text-muted-foreground">
+              Este modulo importa somente receitas e despesas.
+            </p>
           </div>
 
           <Button onClick={handleImport} disabled={loading}>
@@ -942,9 +800,9 @@ export default function ImportPage() {
 
               <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                 <span>Receitas: {formatCurrency(previewSummary.income)}</span>
-                <span>•</span>
+                <span>*</span>
                 <span>Despesas: {formatCurrency(previewSummary.expense)}</span>
-                <span>•</span>
+                <span>*</span>
                 <span>Ignoradas: {previewSummary.skipped}</span>
               </div>
 
@@ -968,9 +826,6 @@ export default function ImportPage() {
                       <SelectItem value="all">Todos</SelectItem>
                       <SelectItem value="income">Receitas</SelectItem>
                       <SelectItem value="expense">Despesas</SelectItem>
-                      <SelectItem value="transfer">Transferencias</SelectItem>
-                      <SelectItem value="investment">Investimentos</SelectItem>
-                      <SelectItem value="market">Carteira</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1146,7 +1001,7 @@ export default function ImportPage() {
                               {formatCurrency(Math.abs(tx.amount))}
                             </span>
                           </TableCell>
-                          <TableCell>{getTypeLabel(row.type, tx.amount)}</TableCell>
+                          <TableCell>{getTypeLabel(tx.amount)}</TableCell>
                           <TableCell>
                             <div className="flex flex-wrap items-center gap-2">
                               {row.skipped && <Badge variant="outline">Ignorada</Badge>}
