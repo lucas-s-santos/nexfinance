@@ -10,6 +10,7 @@ import {
   useCategories,
   useGoals,
   useReserves,
+  useBudgets,
 } from "@/lib/use-financial-data"
 import { calculateFinancialSummary } from "@/lib/sync-database"
 import { DashboardCharts } from "@/components/dashboard/dashboard-charts"
@@ -22,6 +23,8 @@ import { QuickActions } from "@/components/dashboard/quick-actions"
 import { GoalsCard } from "@/components/dashboard/goals-card"
 import { UpcomingBills } from "@/components/dashboard/upcoming-bills"
 import { MonthlyTrend } from "@/components/dashboard/monthly-trend"
+import { BudgetAlerts } from "@/components/dashboard/budget-alerts"
+import { FinancialAlertsDisplay } from "@/components/dashboard/financial-alerts-display"
 import { MONTHS } from "@/lib/format"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
@@ -37,6 +40,7 @@ export default function DashboardPage() {
   const { data: categories = [] } = useCategories()
   const { data: goals, isLoading: goalsLoading } = useGoals()
   const { data: reserves, isLoading: reservesLoading } = useReserves()
+  const { data: budgets = [], isLoading: budgetsLoading } = useBudgets(month, year)
   const { data: forecastData = [], isLoading: forecastLoading } = useForecast(
     month,
     year
@@ -71,6 +75,11 @@ export default function DashboardPage() {
       year
     )
   }, [incomes, expenses, reserves, categories, month, year])
+
+  const categoryMap = useMemo(
+    () => new Map(categories.map((category) => [category.id, category.name])),
+    [categories]
+  )
 
   const notificationSeeds = useMemo(() => {
     if (!periodId) {
@@ -286,6 +295,16 @@ export default function DashboardPage() {
             investmentUsage={financialSummary.investmentUsage}
           />
 
+          {/* Financial Alerts - Alertas Financeiros 🚨 */}
+          <FinancialAlertsDisplay
+            expenses={expenses ?? []}
+            budgets={budgets}
+            bills={bills ?? []}
+            goals={goals ?? []}
+            reserves={reserves ?? []}
+            categories={categories}
+          />
+
           {/* Quick Actions - Botões de Ação Rápida */}
           <QuickActions />
 
@@ -333,6 +352,14 @@ export default function DashboardPage() {
 
           {/* Charts Section - Gráficos e Visualizações */}
           <div className="space-y-6 pt-6 border-t">
+            {!budgetsLoading && budgets.length > 0 && (
+              <BudgetAlerts
+                budgets={budgets}
+                expenses={expenses ?? []}
+                periodId={periodId}
+                categoryMap={categoryMap}
+              />
+            )}
             <MonthlyClosing
               totalIncome={financialSummary.totalIncome}
               totalExpenses={financialSummary.totalExpenses}
@@ -343,7 +370,7 @@ export default function DashboardPage() {
               incomes={incomes ?? []}
               expenses={expenses ?? []}
               forecastData={forecastData}
-              categoryMap={new Map(categories.map((c) => [c.id, c.name]))}
+              categoryMap={categoryMap}
               showValues={showValues}
             />
           </div>

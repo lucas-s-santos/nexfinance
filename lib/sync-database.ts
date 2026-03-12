@@ -1,11 +1,13 @@
 "use client"
 
 import { useEffect } from "react"
+import { mutate } from "swr"
 import { createClient } from "@/lib/supabase/client"
 
 /**
  * Hook para sincronizar dados com o Supabase em tempo real
- * Garante que os valores mostrados sempre correspondem aos valores do banco
+ * Usa SWR mutate() para atualizar cache sem recarregar página
+ * 🔧 OTIMIZAÇÃO: Melhora drasticamente a UX ao evitar recarga completa
  */
 export function useSyncWithDatabase() {
   useEffect(() => {
@@ -19,19 +21,23 @@ export function useSyncWithDatabase() {
           "postgres_changes",
           { event: "*", schema: "public", table: "expenses" },
           () => {
-            // Revalidate cache
-            window.location.href = window.location.href
+            // ✅ Revalidate apenas o cache de expenses, não a página toda
+            mutate((key) => {
+              return typeof key === "string" && key.includes("expenses")
+            })
           }
         )
         .subscribe(),
-      
+
       supabase
         .channel("incomes-changes")
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "incomes" },
           () => {
-            window.location.href = window.location.href
+            mutate((key) => {
+              return typeof key === "string" && key.includes("incomes")
+            })
           }
         )
         .subscribe(),
@@ -42,7 +48,23 @@ export function useSyncWithDatabase() {
           "postgres_changes",
           { event: "*", schema: "public", table: "bills" },
           () => {
-            window.location.href = window.location.href
+            mutate((key) => {
+              return typeof key === "string" && key.includes("bills")
+            })
+          }
+        )
+        .subscribe(),
+
+      // Sincronizar notificações quando há mudança
+      supabase
+        .channel("notifications-changes")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "notifications" },
+          () => {
+            mutate((key) => {
+              return typeof key === "string" && key.includes("notifications")
+            })
           }
         )
         .subscribe(),

@@ -208,34 +208,59 @@ export function useBills(periodId: string | null) {
   )
 }
 
+// ✅ OTIMIZAÇÃO: Categories mudam raramente
+// Cache por 1 hora (3600 segundos)
 export function useReserves() {
-  return useSWR("reserves", fetchReserves)
+  return useSWR("reserves", fetchReserves, {
+    revalidateInterval: 1000 * 60 * 30, // 30 minutos
+  })
 }
 
+// ✅ OTIMIZAÇÃO: Goals mudam raramente
+// Cache por 1 hora (3600 segundos)
 export function useGoals() {
-  return useSWR("goals", fetchGoals)
+  return useSWR("goals", fetchGoals, {
+    revalidateInterval: 1000 * 60 * 30, // 30 minutos
+  })
 }
 
+// ✅ OTIMIZAÇÃO: Categories praticamente nunca mudam
+// Cache por 6 horas
 export function useCategories() {
-  return useSWR("categories", fetchCategories)
+  return useSWR("categories", fetchCategories, {
+    revalidateInterval: 1000 * 60 * 60 * 6, // 6 horas - mudam MUITO raramente
+    dedupingInterval: 1000 * 60 * 5, // Dedup 5 minutos
+  })
 }
 
 export function useBudgets(month: number, year: number) {
-  return useSWR(["budgets", month, year], () => fetchBudgets(month, year))
+  return useSWR(["budgets", month, year], () => fetchBudgets(month, year), {
+    revalidateInterval: 1000 * 60 * 30, // 30 minutos
+  })
 }
 
+// ✅ OTIMIZAÇÃO: Notifications podem refetch com frequência
+// Mas limite a 1 minuto
 export function useNotifications() {
-  return useSWR("notifications", fetchNotifications)
+  return useSWR("notifications", fetchNotifications, {
+    revalidateInterval: 1000 * 60, // 1 minuto
+  })
 }
 
 export function useAuditLogs() {
-  return useSWR("audit_logs", fetchAuditLogs)
+  return useSWR("audit_logs", fetchAuditLogs, {
+    revalidateInterval: 1000 * 60 * 5, // 5 minutos
+  })
 }
 
 export function useRecurringBills() {
-  return useSWR("recurring_bills", fetchRecurringBills)
+  return useSWR("recurring_bills", fetchRecurringBills, {
+    revalidateInterval: 1000 * 60 * 60, // 1 hora
+  })
 }
 
 export function useForecast(month: number, year: number) {
-  return useSWR(["forecast", month, year], () => fetchForecast(month, year))
+  return useSWR(["forecast", month, year], () => fetchForecast(month, year), {
+    revalidateInterval: 1000 * 60 * 60, // 1 hora - mudanças não são frequentes
+  })
 }
