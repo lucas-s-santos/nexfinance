@@ -41,6 +41,7 @@ type ImportTransaction = {
   name: string
   memo?: string
   source: "ofx" | "csv"
+  baseHint?: "income" | "expense" | "investment"
 }
 
 type CsvColumnMap = {
@@ -180,6 +181,7 @@ export default function ImportPage() {
     if (!text) return null
     if (text.includes("deb") || text.includes("desp") || text === "d") return "expense"
     if (text.includes("cred") || text.includes("rec") || text === "c") return "income"
+    if (text.includes("invest") || text === "i") return "investment"
     return null
   }
 
@@ -222,6 +224,8 @@ export default function ImportPage() {
 
         if (!date || !name || Number.isNaN(amount)) return null
 
+        const baseHint = typeHint ?? undefined
+
         return {
           id: `csv-${index}`,
           date,
@@ -229,6 +233,7 @@ export default function ImportPage() {
           name,
           ...(memo ? { memo } : {}),
           source: "csv",
+          ...(baseHint ? { baseHint } : {}),
         } as ImportTransaction
       })
       .filter(isImportTransaction)
@@ -264,6 +269,7 @@ export default function ImportPage() {
         name: tx.name,
         memo: tx.memo,
         source: "ofx",
+        baseHint: inferType(`${tx.name} ${tx.memo ?? ""}`) ?? undefined,
       }))
     )
   }
@@ -306,10 +312,23 @@ export default function ImportPage() {
   const hasKeyword = (normalized: string, keywords: string[]) =>
     keywords.some((keyword) => normalized.includes(keyword))
 
-  const suggestCategoryId = (
-    tx: ImportTransaction,
-    baseType: "income" | "expense"
-  ) => {
+  const investmentKeywords = [
+    "invest",
+    "tesouro",
+    "cdb",
+    "lci",
+    "lca",
+    "bolsa",
+    "renda fixa",
+    "renda variavel",
+    "rendavariavel",
+    "acoes",
+    "fiis",
+    "fundo imobiliario",
+    "fundoimobiliario",
+  ]
+
+  const suggestCategoryId = (tx: ImportTransaction, baseType: "income" | "expense") => {
     const normalized = normalizeDescription(tx)
 
     for (const rule of categoryRules) {
@@ -329,8 +348,17 @@ export default function ImportPage() {
     return expensePaymentMethod
   }
 
-  const resolveBaseType = (tx: ImportTransaction) =>
-    tx.amount >= 0 ? "income" : "expense"
+  const resolveBaseType = (tx: ImportTransaction) => {
+    const hint = tx.baseHint
+    if (hint === "investment") return "investment"
+
+    const normalized = normalizeDescription(tx)
+    if (hasKeyword(normalized, investmentKeywords)) return "investment"
+
+    if (hint === "income") return "income"
+    if (hint === "expense") return "expense"
+    return tx.amount >= 0 ? "income" : "expense"
+  }
 
   const isRowSkipped = (tx: ImportTransaction) =>
     Boolean(ignoredOverrides[tx.id])
@@ -368,6 +396,7 @@ export default function ImportPage() {
       if (previewType === "all") return true
       if (previewType === "income") return baseType === "income"
       if (previewType === "expense") return baseType === "expense"
+      if (previewType === "investment") return baseType === "investment"
       return true
     }
 
@@ -399,6 +428,7 @@ export default function ImportPage() {
   const previewSummary = useMemo(() => {
     let income = 0
     let expense = 0
+    let investment = 0
     let skipped = 0
 
     for (const row of filteredRows) {
@@ -408,14 +438,16 @@ export default function ImportPage() {
       }
       const amount = Math.abs(row.tx.amount)
       if (row.baseType === "income") income += amount
+      else if (row.baseType === "investment") investment += amount
       else expense += amount
     }
 
     return {
       income,
       expense,
+      investment,
       skipped,
-      total: income + expense,
+      total: income + expense + investment,
     }
   }, [filteredRows])
 
@@ -433,7 +465,8 @@ export default function ImportPage() {
     previewMinValue !== "" ||
     previewMaxValue !== ""
 
-  const getTypeLabel = (amount: number) => {
+  const getTypeLabel = (baseType: string, amount: number) => {
+    if (baseType === "investment") return "Investimento"
     return amount >= 0 ? "Receita" : "Despesa"
   }
 
@@ -570,6 +603,7 @@ export default function ImportPage() {
         const categoryId = categoryOverrides[tx.id] || null
 
         const isIncomeType = row.baseType === "income"
+        const isInvestmentType = row.baseType === "investment"
 
         if (isIncomeType) {
           console.log("Inserindo receita")
@@ -586,6 +620,22 @@ export default function ImportPage() {
             failed++
           } else {
             console.log("Receita importada")
+            imported++
+          }
+        } else if (isInvestmentType) {
+          console.log("Inserindo investimento")
+          const { error } = await supabase.from("reserves_investments").insert({
+            user_id: user.id,
+            name: resolvedName,
+            value: Math.abs(tx.amount),
+            date: tx.date,
+            type: "investment",
+          })
+          if (error) {
+            console.error("Erro ao importar investimento:", error)
+            failed++
+          } else {
+            console.log("Investimento importado")
             imported++
           }
         } else {
@@ -803,6 +853,8 @@ export default function ImportPage() {
                 <span>*</span>
                 <span>Despesas: {formatCurrency(previewSummary.expense)}</span>
                 <span>*</span>
+                <span>Investimentos: {formatCurrency(previewSummary.investment)}</span>
+                <span>*</span>
                 <span>Ignoradas: {previewSummary.skipped}</span>
               </div>
 
@@ -826,6 +878,7 @@ export default function ImportPage() {
                       <SelectItem value="all">Todos</SelectItem>
                       <SelectItem value="income">Receitas</SelectItem>
                       <SelectItem value="expense">Despesas</SelectItem>
+                      <SelectItem value="investment">Investimentos</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -925,6 +978,7 @@ export default function ImportPage() {
                       const { tx } = row
                       const isIncomeType = row.baseType === "income"
                       const isExpenseType = row.baseType === "expense"
+                      const isInvestmentType = row.baseType === "investment"
                       return (
                         <TableRow key={row.id} className={row.skipped ? "opacity-60" : undefined}>
                           <TableCell className="whitespace-nowrap">
@@ -961,32 +1015,36 @@ export default function ImportPage() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Select
-                              value={categoryOverrides[row.id] ?? "none"}
-                              onValueChange={(value) => {
-                                setCategoryOverrides((prev) => {
-                                  const next = { ...prev }
-                                  if (value === "none") delete next[row.id]
-                                  else next[row.id] = value
-                                  return next
-                                })
-                              }}
-                            >
-                              <SelectTrigger className="h-9">
-                                <SelectValue placeholder="Categoria" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">Sem categoria</SelectItem>
-                                {(row.baseType === "income"
-                                  ? incomeCategories
-                                  : expenseCategories
-                                ).map((cat) => (
-                                  <SelectItem key={cat.id} value={cat.id}>
-                                    {cat.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+                            {isInvestmentType ? (
+                              <Badge variant="outline">Investimento</Badge>
+                            ) : (
+                              <Select
+                                value={categoryOverrides[row.id] ?? "none"}
+                                onValueChange={(value) => {
+                                  setCategoryOverrides((prev) => {
+                                    const next = { ...prev }
+                                    if (value === "none") delete next[row.id]
+                                    else next[row.id] = value
+                                    return next
+                                  })
+                                }}
+                              >
+                                <SelectTrigger className="h-9">
+                                  <SelectValue placeholder="Categoria" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">Sem categoria</SelectItem>
+                                  {(row.baseType === "income"
+                                    ? incomeCategories
+                                    : expenseCategories
+                                  ).map((cat) => (
+                                    <SelectItem key={cat.id} value={cat.id}>
+                                      {cat.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
                           </TableCell>
                           <TableCell className="whitespace-nowrap">
                             <span
@@ -995,13 +1053,13 @@ export default function ImportPage() {
                                   ? "text-success"
                                   : isExpenseType
                                     ? "text-destructive"
-                                    : "text-foreground"
+                                    : "text-primary"
                               }
                             >
                               {formatCurrency(Math.abs(tx.amount))}
                             </span>
                           </TableCell>
-                          <TableCell>{getTypeLabel(tx.amount)}</TableCell>
+                          <TableCell>{getTypeLabel(row.baseType, tx.amount)}</TableCell>
                           <TableCell>
                             <div className="flex flex-wrap items-center gap-2">
                               {row.skipped && <Badge variant="outline">Ignorada</Badge>}

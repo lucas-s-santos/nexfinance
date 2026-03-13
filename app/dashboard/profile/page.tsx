@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { Suspense, useEffect, useMemo, useRef, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -448,10 +448,23 @@ export default function ProfilePage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <NotificationsPanel
-        title="Notificacoes"
-        subtitle="Central de alertas dentro do seu perfil."
-      />
+      <Suspense
+        fallback={
+          <Card className="p-6">
+            <div className="flex flex-col gap-3">
+              <div className="h-4 w-48 rounded-md bg-muted" />
+              <div className="h-10 w-full rounded-md bg-muted" />
+              <div className="h-10 w-full rounded-md bg-muted" />
+              <div className="h-10 w-full rounded-md bg-muted" />
+            </div>
+          </Card>
+        }
+      >
+        <NotificationsPanel
+          title="Notificacoes"
+          subtitle="Central de alertas dentro do seu perfil."
+        />
+      </Suspense>
     </div>
   )
 }
