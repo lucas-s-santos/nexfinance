@@ -254,20 +254,20 @@ export default function DashboardPage() {
     <div className="px-4 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl space-y-10 py-4 lg:py-6">
         <div className="flex items-center justify-end gap-3">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={toggleShowValues}
-          aria-label={showValues ? "Ocultar valores" : "Mostrar valores"}
-        >
-          {showValues ? (
-            <EyeOff className="mr-2 h-4 w-4" />
-          ) : (
-            <Eye className="mr-2 h-4 w-4" />
-          )}
-          {showValues ? "Ocultar" : "Mostrar"}
-        </Button>
-      </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleShowValues}
+            aria-label={showValues ? "Ocultar valores" : "Mostrar valores"}
+          >
+            {showValues ? (
+              <EyeOff className="mr-2 h-4 w-4" />
+            ) : (
+              <Eye className="mr-2 h-4 w-4" />
+            )}
+            {showValues ? "Ocultar" : "Mostrar"}
+          </Button>
+        </div>
 
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -311,7 +311,7 @@ export default function DashboardPage() {
           </section>
 
           <section className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <GoalsCard goals={goals ?? []} showValues={showValues} />
               <UpcomingBills bills={bills ?? []} showValues={showValues} />
             </div>
