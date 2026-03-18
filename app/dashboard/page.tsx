@@ -251,8 +251,9 @@ export default function DashboardPage() {
 
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-end gap-3">
+    <div className="px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl space-y-10 py-4 lg:py-6">
+        <div className="flex items-center justify-end gap-3">
         <Button
           variant="outline"
           size="sm"
@@ -282,51 +283,51 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          {/* Hero Section - Resumo Principal */}
-          <HeroStats
-            totalIncome={financialSummary.totalIncome}
-            totalExpenses={financialSummary.totalExpenses}
-            remaining={financialSummary.balance}
-            showValues={showValues}
-            month={month}
-            year={year}
-            creditUsage={financialSummary.creditUsage}
-            debitUsage={financialSummary.debitUsage}
-            investmentUsage={financialSummary.investmentUsage}
-            reservedTotal={financialSummary.reservedTotal}
-          />
+          <section className="space-y-6">
+            <HeroStats
+              totalIncome={financialSummary.totalIncome}
+              totalExpenses={financialSummary.totalExpenses}
+              remaining={financialSummary.balance}
+              showValues={showValues}
+              month={month}
+              year={year}
+              creditUsage={financialSummary.creditUsage}
+              debitUsage={financialSummary.debitUsage}
+              investmentUsage={financialSummary.investmentUsage}
+              reservedTotal={financialSummary.reservedTotal}
+            />
+            <FinancialAlertsDisplay
+              expenses={expenses ?? []}
+              budgets={budgets}
+              bills={bills ?? []}
+              goals={goals ?? []}
+              reserves={reserves ?? []}
+              categories={categories}
+            />
+          </section>
 
-          {/* Financial Alerts - Alertas Financeiros 🚨 */}
-          <FinancialAlertsDisplay
-            expenses={expenses ?? []}
-            budgets={budgets}
-            bills={bills ?? []}
-            goals={goals ?? []}
-            reserves={reserves ?? []}
-            categories={categories}
-          />
+          <section className="space-y-4">
+            <QuickActions />
+          </section>
 
-          {/* Quick Actions - Botões de Ação Rápida */}
-          <QuickActions />
+          <section className="space-y-4">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <GoalsCard goals={goals ?? []} showValues={showValues} />
+              <UpcomingBills bills={bills ?? []} showValues={showValues} />
+            </div>
+          </section>
 
-          {/* Goals and Bills - Metas e Contas a Pagar */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <GoalsCard goals={goals ?? []} showValues={showValues} />
-            <UpcomingBills bills={bills ?? []} showValues={showValues} />
-          </div>
+          <section className="space-y-6">
+            <MonthlyTrend
+              incomes={incomes ?? []}
+              expenses={expenses ?? []}
+              showValues={showValues}
+              month={month}
+              year={year}
+            />
+          </section>
 
-          {/* Monthly Trend - Tendência Mensal */}
-          <MonthlyTrend
-            incomes={incomes ?? []}
-            expenses={expenses ?? []}
-            showValues={showValues}
-            month={month}
-            year={year}
-          />
-
-          {/* Analysis Section - Análise Detalhada */}
-          <div className="space-y-6 pt-6 border-t">
-            {/* Extra Income - Rendas Extras */}
+          <section className="space-y-6 pt-6 border-t border-muted-foreground/10">
             <ExtraIncome
               incomes={incomes ?? []}
               categories={categories}
@@ -335,24 +336,19 @@ export default function DashboardPage() {
               month={month}
               year={year}
             />
-
-            {/* Essential vs Discretionary - Essencial vs Discricionário */}
             <EssentialVsDiscretionary
               expenses={expenses ?? []}
               income={financialSummary.totalIncome}
               showValues={showValues}
             />
-
-            {/* Expenses Breakdown - Gastos por Categoria */}
             <ExpensesBreakdown
               expenses={expenses ?? []}
               categories={categories}
               showValues={showValues}
             />
-          </div>
+          </section>
 
-          {/* Charts Section - Gráficos e Visualizações */}
-          <div className="space-y-6 pt-6 border-t">
+          <section className="space-y-6 pt-6 border-t border-muted-foreground/10">
             {!budgetsLoading && budgets.length > 0 && (
               <BudgetAlerts
                 budgets={budgets}
@@ -374,9 +370,10 @@ export default function DashboardPage() {
               categoryMap={categoryMap}
               showValues={showValues}
             />
-          </div>
+          </section>
         </>
       )}
+      </div>
     </div>
   )
 }
