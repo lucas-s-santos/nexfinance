@@ -100,15 +100,81 @@ export default function BillsPage() {
     setDialogOpen(true)
   }
 
-  const togglePaid = async (billId: string, currentPaid: boolean) => {
-    const supabase = createClient()
+  const syncExpenseForBill = async (
+    supabase: ReturnType<typeof createClient>,
+    bill: NonNullable<typeof bills>[number]
+  ) => {
+    const { data: existingExpense, error: existingExpenseError } = await supabase
+      .from("expenses")
+      .select("id, category_id, payment_method, is_essential")
+      .eq("bill_id", bill.id)
+      .limit(1)
+      .maybeSingle()
+
+    if (existingExpenseError) throw existingExpenseError
+
+    const expensePayload = {
+      user_id: bill.user_id,
+      period_id: bill.period_id,
+      name: bill.name,
+      value: Number(bill.value),
+      date: bill.due_date,
+      category_id: existingExpense?.category_id ?? null,
+      payment_method: existingExpense?.payment_method ?? "debit",
+      is_essential: existingExpense?.is_essential ?? bill.is_planned,
+      bill_id: bill.id,
+    }
+
+    if (existingExpense?.id) {
+      const { error } = await supabase
+        .from("expenses")
+        .update(expensePayload)
+        .eq("id", existingExpense.id)
+      if (error) throw error
+      return
+    }
+
+    const { error } = await supabase.from("expenses").insert(expensePayload)
+    if (error) throw error
+  }
+
+  const removeExpenseForBill = async (
+    supabase: ReturnType<typeof createClient>,
+    billId: string
+  ) => {
     const { error } = await supabase
-      .from("bills")
-      .update({ is_paid: !currentPaid })
-      .eq("id", billId)
-    if (error) toast.error("Erro ao atualizar status")
-    else toast.success(!currentPaid ? "Conta marcada como paga" : "Conta marcada como pendente")
-    mutate(["bills", periodId])
+      .from("expenses")
+      .delete()
+      .eq("bill_id", billId)
+    if (error) throw error
+  }
+
+  const togglePaid = async (bill: NonNullable<typeof bills>[number]) => {
+    if (!periodId) return
+    const supabase = createClient()
+    const nextPaid = !bill.is_paid
+
+    try {
+      if (nextPaid) {
+        await syncExpenseForBill(supabase, bill)
+      } else {
+        await removeExpenseForBill(supabase, bill.id)
+      }
+
+      const { error } = await supabase
+        .from("bills")
+        .update({ is_paid: nextPaid })
+        .eq("id", bill.id)
+      if (error) throw error
+
+      toast.success(
+        nextPaid ? "Conta marcada como paga" : "Conta marcada como pendente"
+      )
+      mutate(["bills", periodId])
+      mutate(["expenses", periodId])
+    } catch {
+      toast.error("Erro ao sincronizar conta com despesas")
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -151,27 +217,67 @@ export default function BillsPage() {
     }
 
     if (editId) {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("bills")
         .update(payload)
         .eq("id", editId)
-      if (error) toast.error("Erro ao atualizar conta")
-      else toast.success("Conta atualizada")
+        .select("*")
+        .single()
+
+      if (error) {
+        toast.error("Erro ao atualizar conta")
+      } else {
+        try {
+          if (form.is_paid) {
+            await syncExpenseForBill(supabase, data)
+          } else {
+            await removeExpenseForBill(supabase, data.id)
+          }
+          toast.success("Conta atualizada")
+        } catch {
+          toast.error("Conta atualizada, mas houve erro ao sincronizar a despesa")
+        }
+      }
     } else {
-      const { error } = await supabase.from("bills").insert(payload)
-      if (error) toast.error("Erro ao criar conta")
-      else toast.success("Conta criada")
+      const { data, error } = await supabase
+        .from("bills")
+        .insert(payload)
+        .select("*")
+        .single()
+
+      if (error) {
+        toast.error("Erro ao criar conta")
+      } else {
+        try {
+          if (form.is_paid) {
+            await syncExpenseForBill(supabase, data)
+          }
+          toast.success("Conta criada")
+        } catch {
+          toast.error("Conta criada, mas houve erro ao sincronizar a despesa")
+        }
+      }
     }
 
     setSaving(false)
     setDialogOpen(false)
     mutate(["bills", periodId])
+    mutate(["expenses", periodId])
   }
 
   const handleDelete = async () => {
     if (!deleteId || !periodId) return
     setSaving(true)
     const supabase = createClient()
+
+    try {
+      await removeExpenseForBill(supabase, deleteId)
+    } catch {
+      toast.error("Erro ao remover despesa vinculada")
+      setSaving(false)
+      return
+    }
+
     const { error } = await supabase.from("bills").delete().eq("id", deleteId)
     if (error) toast.error("Erro ao excluir conta")
     else toast.success("Conta excluida")
@@ -179,6 +285,7 @@ export default function BillsPage() {
     setDeleteOpen(false)
     setDeleteId(null)
     mutate(["bills", periodId])
+    mutate(["expenses", periodId])
   }
 
   const handleExport = () => {
@@ -308,9 +415,7 @@ export default function BillsPage() {
                     <TableCell>
                       <Checkbox
                         checked={bill.is_paid}
-                        onCheckedChange={() =>
-                          togglePaid(bill.id, bill.is_paid)
-                        }
+                        onCheckedChange={() => togglePaid(bill)}
                       />
                     </TableCell>
                     <TableCell

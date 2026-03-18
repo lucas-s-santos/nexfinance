@@ -24,6 +24,7 @@ interface HeroStatsProps {
   creditUsage: number
   debitUsage: number
   investmentUsage: number
+  reservedTotal: number
 }
 
 export function HeroStats({
@@ -36,6 +37,7 @@ export function HeroStats({
   creditUsage,
   debitUsage,
   investmentUsage,
+  reservedTotal,
 }: HeroStatsProps) {
   const renderValue = (value: number) =>
     showValues ? formatCurrency(value) : "R$ ••••"
@@ -69,17 +71,22 @@ export function HeroStats({
           <CardContent className="p-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {/* Balance */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Wallet className={cn("h-5 w-5", isPositive ? "text-success" : "text-destructive")} />
-                  <p className="text-sm text-muted-foreground">Saldo Restante</p>
-                </div>
-                <p className={cn(
-                  "text-4xl font-bold",
-                  isPositive ? "text-success" : "text-destructive"
-                )}>
-                  {renderValue(displayBalance)}
-                </p>
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Wallet className={cn("h-5 w-5", isPositive ? "text-success" : "text-destructive")} />
+                    <p className="text-sm text-muted-foreground">Saldo Restante</p>
+                  </div>
+                  <p className={cn(
+                    "text-4xl font-bold",
+                    isPositive ? "text-success" : "text-destructive"
+                  )}>
+                    {renderValue(displayBalance)}
+                  </p>
+                  {reservedTotal > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Inclui {renderValue(reservedTotal)} bloqueados em reservas/investimentos
+                    </p>
+                  )}
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>Situação financeira</span>

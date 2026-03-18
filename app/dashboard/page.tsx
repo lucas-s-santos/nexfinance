@@ -284,6 +284,7 @@ export default function DashboardPage() {
             creditUsage={financialSummary.creditUsage}
             debitUsage={financialSummary.debitUsage}
             investmentUsage={financialSummary.investmentUsage}
+            reservedTotal={financialSummary.reservedTotal}
           />
 
           {/* Quick Actions - Botões de Ação Rápida */}

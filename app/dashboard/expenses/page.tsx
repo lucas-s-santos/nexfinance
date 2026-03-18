@@ -183,9 +183,30 @@ export default function ExpensesPage() {
     if (!deleteId || !periodId) return
     setSaving(true)
     const supabase = createClient()
+    const expenseToDelete = (expenses ?? []).find(
+      (expense) => expense.id === deleteId
+    )
     const { error } = await supabase.from("expenses").delete().eq("id", deleteId)
-    if (error) toast.error("Erro ao excluir despesa")
-    else toast.success("Despesa excluida")
+    if (error) {
+      toast.error("Erro ao excluir despesa")
+      setSaving(false)
+      return
+    }
+
+    if (expenseToDelete?.bill_id) {
+      const { error: billError } = await supabase
+        .from("bills")
+        .update({ is_paid: false })
+        .eq("id", expenseToDelete.bill_id)
+      if (billError) {
+        toast.error("Despesa excluida, mas nao foi possivel atualizar a conta")
+      } else {
+        mutate(["bills", periodId])
+        toast.success("Despesa excluida e conta marcada como pendente")
+      }
+    } else {
+      toast.success("Despesa excluida")
+    }
     setSaving(false)
     setDeleteOpen(false)
     setDeleteId(null)

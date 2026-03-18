@@ -45,6 +45,13 @@ CREATE TABLE IF NOT EXISTS public.expenses (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+ALTER TABLE public.expenses
+  ADD COLUMN IF NOT EXISTS bill_id UUID REFERENCES public.bills(id) ON DELETE CASCADE;
+
+CREATE UNIQUE INDEX IF NOT EXISTS expenses_bill_id_unique
+  ON public.expenses (bill_id)
+  WHERE bill_id IS NOT NULL;
+
 -- Bills (contas a pagar)
 CREATE TABLE IF NOT EXISTS public.bills (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

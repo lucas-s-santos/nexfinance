@@ -70,6 +70,7 @@ export interface FinancialSummary {
   salaryTotal: number
   essentialExpenses: number
   discretionaryExpenses: number
+  reservedTotal: number
 }
 
 export function calculateFinancialSummary(
@@ -118,6 +119,10 @@ export function calculateFinancialSummary(
     )
     .reduce((sum, item) => sum + Number(item.value || 0), 0)
 
+  const reservedTotal = reserves
+    .filter((item) => isSamePeriod(item.date))
+    .reduce((sum, item) => sum + Number(item.value || 0), 0)
+
   // Salary
   const salaryCategories = categories
     .filter(
@@ -132,15 +137,19 @@ export function calculateFinancialSummary(
     .filter((income) => salaryCategories.includes(income.category_id))
     .reduce((sum, income) => sum + Number(income.value || 0), 0)
 
+  const netBalance =
+    totalIncome - totalExpenses - reservedTotal
+
   return {
     totalIncome,
     totalExpenses,
-    balance: totalIncome - totalExpenses,
+    balance: netBalance,
     creditUsage,
     debitUsage,
     investmentUsage,
     salaryTotal,
     essentialExpenses,
     discretionaryExpenses,
+    reservedTotal,
   }
 }
