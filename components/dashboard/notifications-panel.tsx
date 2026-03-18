@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState, useEffect } from "react"
 import { useNotifications } from "@/lib/use-financial-data"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,15 @@ import {
   Wallet,
 } from "lucide-react"
 import { mutate } from "swr"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+
+const FILTER_PARAM = "notificationsFilter"
+
+type NotificationFilter = "all" | "unread"
+
+function normalizeFilter(value: string | null): NotificationFilter {
+  return value === "unread" ? "unread" : "all"
+}
 
 type NotificationsPanelProps = {
   title?: string
@@ -26,11 +35,42 @@ export function NotificationsPanel({
   subtitle = "Avisos de vencimentos, metas e atividades do sistema.",
 }: NotificationsPanelProps) {
   const { data: notifications, isLoading } = useNotifications()
-  const [filter, setFilter] = useState<"all" | "unread">("all")
+  const [dense, setDense] = useState(false)
+  const [filterAnimating, setFilterAnimating] = useState(false)
+  const filterTimer = useRef<NodeJS.Timeout | null>(null)
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname() ?? "/"
+  const filter = normalizeFilter(searchParams.get(FILTER_PARAM))
+  const searchParamString = searchParams.toString()
+
+  const filteredNotifications = useMemo(
+    () => (notifications ?? []).filter((n) => n.type !== "budget_alert"),
+    [notifications]
+  )
+
+  const handleFilterChange = (nextFilter: NotificationFilter) => {
+    if (filterTimer.current) {
+      clearTimeout(filterTimer.current)
+    }
+    setFilterAnimating(true)
+    filterTimer.current = setTimeout(() => setFilterAnimating(false), 180)
+
+    const updated = new URLSearchParams(searchParamString)
+    if (nextFilter === "all") {
+      updated.delete(FILTER_PARAM)
+    } else {
+      updated.set(FILTER_PARAM, nextFilter)
+    }
+
+    const queryString = updated.toString()
+    const destination = queryString ? `${pathname}?${queryString}` : pathname
+    router.replace(destination, { scroll: false })
+  }
 
   const unreadCount = useMemo(
-    () => (notifications ?? []).filter((n) => !n.is_read).length,
-    [notifications]
+    () => filteredNotifications.filter((n) => !n.is_read).length,
+    [filteredNotifications]
   )
 
   const markAsRead = async (id: string) => {
@@ -41,10 +81,10 @@ export function NotificationsPanel({
 
   const visibleNotifications = useMemo(() => {
     if (filter === "unread") {
-      return (notifications ?? []).filter((n) => !n.is_read)
+      return filteredNotifications.filter((n) => !n.is_read)
     }
-    return notifications ?? []
-  }, [filter, notifications])
+    return filteredNotifications
+  }, [filter, filteredNotifications])
 
   const getNotificationMeta = (type?: string) => {
     switch (type) {
@@ -77,6 +117,13 @@ export function NotificationsPanel({
     }).format(date)
   }
 
+  useEffect(
+    () => () => {
+      if (filterTimer.current) clearTimeout(filterTimer.current)
+    },
+    []
+  )
+
   return (
     <Card>
       <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -88,15 +135,23 @@ export function NotificationsPanel({
         <div className="flex items-center gap-2">
           <Button
             size="sm"
+            variant="ghost"
+            onClick={() => setDense((prev) => !prev)}
+            aria-pressed={dense}
+          >
+            {dense ? "Espaço normal" : "Modo compacto"}
+          </Button>
+          <Button
+            size="sm"
             variant={filter === "all" ? "default" : "outline"}
-            onClick={() => setFilter("all")}
+            onClick={() => handleFilterChange("all")}
           >
             Todas
           </Button>
           <Button
             size="sm"
             variant={filter === "unread" ? "default" : "outline"}
-            onClick={() => setFilter("unread")}
+            onClick={() => handleFilterChange("unread")}
           >
             Nao lidas
           </Button>
@@ -118,7 +173,13 @@ export function NotificationsPanel({
             </p>
           </div>
         ) : (
-          <div className="divide-y divide-border/60">
+          <div
+            className="divide-y divide-border/60 transition-all duration-200 ease-out"
+            style={{
+              opacity: filterAnimating ? 0.45 : 1,
+              transform: filterAnimating ? "translateY(4px)" : "translateY(0)",
+            }}
+          >
             {visibleNotifications.map((notification) => {
               const meta = getNotificationMeta(notification.type)
               const Icon = meta.icon
@@ -127,9 +188,9 @@ export function NotificationsPanel({
               return (
                 <div
                   key={notification.id}
-                  className={`flex items-start justify-between gap-4 p-6 ${
+                  className={`flex items-start justify-between gap-4 ${dense ? "p-4" : "p-6"} ${
                     isUnread ? "bg-card/60" : "bg-transparent"
-                  }`}
+                  } transition-colors duration-200 hover:bg-muted/40`}
                 >
                   <div className="flex items-start gap-3">
                     <div
@@ -141,14 +202,14 @@ export function NotificationsPanel({
                     </div>
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-semibold text-foreground">
+                        <p className={`${dense ? "text-sm" : "text-base"} font-semibold text-foreground`}>
                           {notification.title}
                         </p>
                         <Badge variant={isUnread ? "default" : "secondary"}>
                           {isUnread ? "Nao lida" : meta.label}
                         </Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground">
+                      <p className={`${dense ? "text-xs" : "text-sm"} text-muted-foreground`}>
                         {notification.message}
                       </p>
                       <p className="text-xs text-muted-foreground/70">
