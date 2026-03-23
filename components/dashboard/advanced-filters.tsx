@@ -125,17 +125,17 @@ export function AdvancedFilters({
         </Button>
       </div>
 
-      <CollapsibleContent className="mt-3">
-        <div className="grid gap-3 rounded-lg border border-border bg-muted/30 p-4 sm:grid-cols-2 lg:grid-cols-4">
+      <CollapsibleContent className="mt-3 overflow-hidden data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2">
+        <div className="grid gap-4 rounded-2xl border-0 glass-panel bg-card/60 p-5 shadow-sm sm:grid-cols-2 lg:grid-cols-4 dark:bg-card/40">
           <div className="flex flex-col gap-1.5">
-            <Label className="text-xs">Data Inicio</Label>
+            <Label className="text-xs font-medium text-muted-foreground ml-1">Data Início</Label>
             <Input
               type="date"
               value={filters.dateFrom}
               onChange={(e) =>
                 onFiltersChange({ ...filters, dateFrom: e.target.value })
               }
-              className="h-9 text-sm"
+              className="h-10 text-sm bg-background/50 border-input/50"
             />
           </div>
           <div className="flex flex-col gap-1.5">

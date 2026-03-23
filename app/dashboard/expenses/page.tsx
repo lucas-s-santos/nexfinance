@@ -1,7 +1,6 @@
 "use client"
 
 import React from "react"
-
 import { useState } from "react"
 import { usePeriod } from "@/lib/period-context"
 import { useCategories, useExpenses } from "@/lib/use-financial-data"
@@ -12,6 +11,10 @@ import { expenseSchema } from "@/lib/validators"
 import { isFutureDate } from "@/lib/date"
 import { toast } from "sonner"
 import { mutate } from "swr"
+import { motion } from "framer-motion"
+import { useSmartCategory } from "@/hooks/use-smart-category"
+import { FileUpload } from "@/components/ui/file-upload"
+import { uploadReceipt } from "@/lib/upload-receipt"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -54,6 +57,7 @@ interface ExpenseForm {
   payment_method: string
   is_essential: boolean
   category_id: string
+  receipt_url: string | null
 }
 
 const emptyForm: ExpenseForm = {
@@ -63,6 +67,7 @@ const emptyForm: ExpenseForm = {
   payment_method: "debit",
   is_essential: false,
   category_id: "",
+  receipt_url: null,
 }
 
 export default function ExpensesPage() {
@@ -87,6 +92,13 @@ export default function ExpensesPage() {
 
   const filteredExpenses = useFilteredData(expenses ?? [], filters)
 
+  useSmartCategory(
+    form.name,
+    expenseCategories,
+    form.category_id,
+    (id) => setForm((prev) => ({ ...prev, category_id: id }))
+  )
+
   const total = filteredExpenses.reduce(
     (sum, e) => sum + Number(e.value),
     0
@@ -109,6 +121,7 @@ export default function ExpensesPage() {
       payment_method: expense.payment_method,
       is_essential: expense.is_essential,
       category_id: expense.category_id ?? "",
+      receipt_url: expense.receipt_url ?? null,
     })
     setEditId(expense.id)
     setDialogOpen(true)
@@ -123,7 +136,7 @@ export default function ExpensesPage() {
       data: { user },
     } = await supabase.auth.getUser()
     if (!user) {
-      toast.error("Usuario nao autenticado")
+      toast.error("Usuário não autenticado")
       setSaving(false)
       return
     }
@@ -136,16 +149,17 @@ export default function ExpensesPage() {
       category_id: form.category_id || undefined,
       payment_method: form.payment_method,
       is_essential: form.is_essential,
+      receipt_url: form.receipt_url || undefined,
     })
 
     if (!validation.success) {
-      toast.error(validation.error.errors[0]?.message ?? "Dados invalidos")
+      toast.error(validation.error.errors[0]?.message ?? "Dados inválidos")
       setSaving(false)
       return
     }
 
     if (isFutureDate(form.date)) {
-      toast.error("Data nao pode ser futura")
+      toast.error("Data não pode ser futura")
       setSaving(false)
       return
     }
@@ -159,6 +173,7 @@ export default function ExpensesPage() {
       category_id: form.category_id || null,
       payment_method: form.payment_method,
       is_essential: form.is_essential,
+      receipt_url: form.receipt_url || null,
     }
 
     if (editId) {
@@ -167,11 +182,11 @@ export default function ExpensesPage() {
         .update(payload)
         .eq("id", editId)
       if (error) toast.error("Erro ao atualizar despesa")
-      else toast.success("Despesa atualizada")
+      else toast.success("Despesa atualizada com sucesso")
     } else {
       const { error } = await supabase.from("expenses").insert(payload)
       if (error) toast.error("Erro ao criar despesa")
-      else toast.success("Despesa criada")
+      else toast.success("Despesa registrada com sucesso")
     }
 
     setSaving(false)
@@ -199,13 +214,13 @@ export default function ExpensesPage() {
         .update({ is_paid: false })
         .eq("id", expenseToDelete.bill_id)
       if (billError) {
-        toast.error("Despesa excluida, mas nao foi possivel atualizar a conta")
+        toast.error("Despesa excluída, mas não foi possível atualizar a conta")
       } else {
         mutate(["bills", periodId])
-        toast.success("Despesa excluida e conta marcada como pendente")
+        toast.success("Despesa excluída e conta marcada como pendente")
       }
     } else {
-      toast.success("Despesa excluida")
+      toast.success("Despesa excluída com sucesso")
     }
     setSaving(false)
     setDeleteOpen(false)
@@ -228,76 +243,90 @@ export default function ExpensesPage() {
       date: formatDate(expense.date),
       value: formatCurrency(Number(expense.value)),
       payment_method: PAYMENT_METHODS[expense.payment_method],
-      is_essential: expense.is_essential ? "Essencial" : "Nao essencial",
+      is_essential: expense.is_essential ? "Essencial" : "Não essencial",
       category: categoryMap.get(expense.category_id ?? "") ?? "Sem categoria",
     }))
     exportToCSV(rows, "despesas", [
       { key: "name", label: "Nome" },
       { key: "date", label: "Data" },
       { key: "value", label: "Valor" },
-      { key: "payment_method", label: "Metodo" },
+      { key: "payment_method", label: "Método" },
       { key: "is_essential", label: "Tipo" },
       { key: "category", label: "Categoria" },
     ])
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex flex-col gap-6"
+    >
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Despesas</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">Despesas</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
             {MONTHS[month - 1]} de {year}
           </p>
         </div>
-        <Button onClick={openNew}>
+        <Button onClick={openNew} className="rounded-full shadow-lg shadow-primary/20 hover:scale-105 transition-transform">
           <Plus className="mr-2 h-4 w-4" />
-          Nova Despesa
+          <span className="hidden sm:inline">Nova Despesa</span>
+          <span className="sm:hidden">Nova</span>
         </Button>
       </div>
 
       {/* Summary cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <Card className="glass-panel border-0 relative overflow-hidden group hover:shadow-md transition-shadow">
+          <div className="absolute right-0 top-0 w-24 h-24 bg-destructive/5 rounded-bl-full transition-transform group-hover:scale-110" />
+          <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Total de Despesas
             </CardTitle>
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/10">
-              <TrendingDown className="h-4 w-4 text-destructive" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10">
+              <TrendingDown className="h-5 w-5 text-destructive" />
             </div>
           </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold text-destructive">
+          <CardContent className="relative z-10">
+            <p className="text-3xl font-bold text-destructive">
               {formatCurrency(total)}
             </p>
           </CardContent>
         </Card>
+        
         {byMethod
           .filter((m) => m.total > 0)
-          .map((m) => (
-            <Card key={m.key}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {m.label}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-xl font-bold text-foreground">
-                  {formatCurrency(m.total)}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {total > 0 ? ((m.total / total) * 100).toFixed(1) : 0}% do total
-                </p>
-              </CardContent>
-            </Card>
-          ))}
+          .map((m) => {
+            const isCredit = m.key === "credit"
+            const iconBg = isCredit ? "bg-primary/10" : "bg-blue-500/10"
+            const iconColor = isCredit ? "text-primary" : "text-blue-500"
+            const cornerBg = isCredit ? "bg-primary/5" : "bg-blue-500/5"
+            return (
+              <Card key={m.key} className="glass-panel border-0 relative overflow-hidden group hover:shadow-md transition-shadow">
+                <div className={`absolute right-0 top-0 w-24 h-24 ${cornerBg} rounded-bl-full transition-transform group-hover:scale-110`} />
+                <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {m.label}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="relative z-10">
+                  <p className="text-2xl font-bold text-foreground">
+                    {formatCurrency(m.total)}
+                  </p>
+                  <p className="text-xs font-medium text-muted-foreground mt-1">
+                    {total > 0 ? ((m.total / total) * 100).toFixed(1) : 0}% do total
+                  </p>
+                </CardContent>
+              </Card>
+            )
+          })}
       </div>
 
       {/* Table */}
-      <Card>
+      <Card className="glass-panel border-0 shadow-sm overflow-hidden">
         <CardContent className="p-0">
-          <div className="p-4">
+          <div className="p-4 sm:p-5 border-b border-border/50">
             <AdvancedFilters
               filters={filters}
               onFiltersChange={setFilters}
@@ -311,27 +340,29 @@ export default function ExpensesPage() {
             />
           </div>
           {isLoading || periodLoading ? (
-            <div className="flex flex-col gap-2 p-6">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <Skeleton key={`sk-${
-                  // biome-ignore lint: index
-                  i
-                }`} className="h-10" />
+            <div className="flex flex-col gap-3 p-6">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={`sk-${i}`} className="h-14 rounded-xl opacity-50" />
               ))}
             </div>
           ) : filteredExpenses.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-12 text-center">
-              <TrendingDown className="h-10 w-10 text-muted-foreground/40" />
-              <p className="text-muted-foreground">
-                Nenhuma despesa cadastrada
-              </p>
-              <Button variant="outline" onClick={openNew}>
-                Adicionar despesa
+            <div className="flex flex-col items-center gap-3 py-16 text-center">
+              <div className="p-4 rounded-full bg-muted/50 mb-2">
+                <TrendingDown className="h-10 w-10 text-muted-foreground/50" />
+              </div>
+              <div>
+                <p className="text-lg font-medium text-foreground">Nenhuma despesa encontrada</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Adicione sua primeira despesa deste formato ou ajuste os filtros.
+                </p>
+              </div>
+              <Button variant="outline" className="mt-4 rounded-full" onClick={openNew}>
+                Começar a adicionar
               </Button>
             </div>
           ) : (
             <>
-              <div className="lg:hidden p-4">
+              <div className="lg:hidden p-4 bg-muted/20">
                 <MobileCards
                   items={filteredExpenses.map((expense) => ({
                     id: expense.id,
@@ -340,23 +371,17 @@ export default function ExpensesPage() {
                     date: expense.date,
                     badges: [
                       {
-                        label:
-                          categoryMap.get(expense.category_id ?? "") ??
-                          "Sem categoria",
-                        variant: "secondary",
+                        label: categoryMap.get(expense.category_id ?? "") ?? "Sem categoria",
+                        variant: categoryMap.get(expense.category_id ?? "") ? "secondary" : "outline",
                       },
                       {
                         label: PAYMENT_METHODS[expense.payment_method],
                         variant: "outline",
                       },
                       {
-                        label: expense.is_essential
-                          ? "Essencial"
-                          : "Nao Essencial",
+                        label: expense.is_essential ? "Essencial" : "Não Essencial",
                         variant: "outline",
-                        className: expense.is_essential
-                          ? ""
-                          : "border-warning/30 text-warning",
+                        className: expense.is_essential ? "" : "border-warning/30 text-warning",
                       },
                     ],
                     valueColor: "text-destructive",
@@ -373,48 +398,47 @@ export default function ExpensesPage() {
               </div>
               <div className="hidden lg:block">
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Categoria</TableHead>
-                      <TableHead>Metodo</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead className="text-right">Valor</TableHead>
-                      <TableHead className="w-20 text-right">Acoes</TableHead>
+                  <TableHeader className="bg-muted/30 hover:bg-muted/30">
+                    <TableRow className="border-border/50">
+                      <TableHead className="font-medium">Nome</TableHead>
+                      <TableHead className="font-medium">Data</TableHead>
+                      <TableHead className="font-medium">Categoria</TableHead>
+                      <TableHead className="font-medium">Método</TableHead>
+                      <TableHead className="font-medium">Tipo</TableHead>
+                      <TableHead className="text-right font-medium">Valor</TableHead>
+                      <TableHead className="w-24 text-right">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredExpenses.map((expense) => (
-                      <TableRow key={expense.id}>
-                        <TableCell className="font-medium">
+                      <TableRow key={expense.id} className="border-border/50 hover:bg-muted/30 transition-colors">
+                        <TableCell className="font-semibold text-foreground">
                           {expense.name}
                         </TableCell>
-                        <TableCell>{formatDate(expense.date)}</TableCell>
+                        <TableCell className="text-muted-foreground">{formatDate(expense.date)}</TableCell>
                         <TableCell>
-                          <Badge variant="outline">
-                            {categoryMap.get(expense.category_id ?? "") ??
-                              "Sem categoria"}
+                          <Badge variant="secondary" className="bg-secondary/50 hover:bg-secondary">
+                            {categoryMap.get(expense.category_id ?? "") ?? "Sem categoria"}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary">
+                          <Badge variant="outline" className="border-border/50 text-muted-foreground">
                             {PAYMENT_METHODS[expense.payment_method]}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           {expense.is_essential ? (
-                            <Badge variant="outline">Essencial</Badge>
+                            <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary">Essencial</Badge>
                           ) : (
                             <Badge
                               variant="outline"
-                              className="border-warning/30 text-warning"
+                              className="border-warning/30 bg-warning/5 text-warning"
                             >
-                              Nao Essencial
+                              Não Essencial
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell className="text-right font-medium text-destructive">
+                        <TableCell className="text-right text-[15px] font-bold text-destructive">
                           {formatCurrency(Number(expense.value))}
                         </TableCell>
                         <TableCell className="text-right">
@@ -422,23 +446,21 @@ export default function ExpensesPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8"
+                              className="h-8 w-8 rounded-full hover:bg-primary/10 hover:text-primary transition-colors"
                               onClick={() => openEdit(expense)}
                             >
-                              <Pencil className="h-3.5 w-3.5" />
-                              <span className="sr-only">Editar</span>
+                              <Pencil className="h-4 w-4" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              className="h-8 w-8 rounded-full text-destructive/80 hover:bg-destructive/10 hover:text-destructive transition-colors"
                               onClick={() => {
                                 setDeleteId(expense.id)
                                 setDeleteOpen(true)
                               }}
                             >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              <span className="sr-only">Excluir</span>
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>
@@ -460,81 +482,99 @@ export default function ExpensesPage() {
         onSubmit={handleSubmit}
         isLoading={saving}
       >
-        <div className="grid gap-2">
-          <Label htmlFor="name">Nome</Label>
-          <Input
-            id="name"
-            required
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Ex: Mercado"
-          />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="value">Valor (R$)</Label>
-          <MoneyInput
-            id="value"
-            required
-            value={form.value}
-            onValueChange={(value) => setForm({ ...form, value })}
-            placeholder="0,00"
-          />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="date">Data</Label>
-          <Input
-            id="date"
-            type="date"
-            required
-            value={form.date}
-            onChange={(e) => setForm({ ...form, date: e.target.value })}
-          />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="category">Categoria</Label>
-          <Select
-            value={form.category_id || "none"}
-            onValueChange={(value) =>
-              setForm({ ...form, category_id: value === "none" ? "" : value })
-            }
-          >
-            <SelectTrigger id="category">
-              <SelectValue placeholder="Sem categoria" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Sem categoria</SelectItem>
-              {expenseCategories.map((cat) => (
-                <SelectItem key={cat.id} value={cat.id}>
-                  {cat.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid gap-2">
-          <Label>Metodo de Pagamento</Label>
-          <Select
-            value={form.payment_method}
-            onValueChange={(v) => setForm({ ...form, payment_method: v })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(PAYMENT_METHODS).map(([key, label]) => (
-                <SelectItem key={key} value={key}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex items-center gap-3">
-          <Switch
-            checked={form.is_essential}
-            onCheckedChange={(v) => setForm({ ...form, is_essential: v })}
-          />
-          <Label>Despesa essencial</Label>
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="name">Qual foi a despesa?</Label>
+            <Input
+              id="name"
+              required
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="Ex: Mercado, Uber..."
+              className="h-11"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="value">Valor (R$)</Label>
+            <MoneyInput
+              id="value"
+              required
+              value={form.value}
+              onValueChange={(value) => setForm({ ...form, value })}
+              placeholder="0,00"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="date">Quando?</Label>
+              <Input
+                id="date"
+                type="date"
+                required
+                value={form.date}
+                onChange={(e) => setForm({ ...form, date: e.target.value })}
+                className="h-11"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Método de Pagamento</Label>
+              <Select
+                value={form.payment_method}
+                onValueChange={(v) => setForm({ ...form, payment_method: v })}
+              >
+                <SelectTrigger className="h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(PAYMENT_METHODS).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="category">Categoria</Label>
+            <Select
+              value={form.category_id || "none"}
+              onValueChange={(value) =>
+                setForm({ ...form, category_id: value === "none" ? "" : value })
+              }
+            >
+              <SelectTrigger id="category" className="h-11">
+                <SelectValue placeholder="Sem categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem categoria</SelectItem>
+                {expenseCategories.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-center gap-3 p-3 mt-2 rounded-xl border border-border/50 bg-muted/20">
+            <Switch
+              checked={form.is_essential}
+              onCheckedChange={(v) => setForm({ ...form, is_essential: v })}
+            />
+            <div className="flex flex-col">
+              <Label className="text-sm font-medium">Despesa Essencial</Label>
+              <span className="text-xs text-muted-foreground mt-0.5">Marque se este gasto for vital para o seu mês.</span>
+            </div>
+          </div>
+          <div className="grid gap-2">
+            <Label>Comprovante (Opcional)</Label>
+            <FileUpload
+              value={form.receipt_url}
+              onChange={(url) => setForm({ ...form, receipt_url: url })}
+              onUpload={uploadReceipt}
+              disabled={saving}
+            />
+          </div>
         </div>
       </CrudDialog>
 
@@ -546,6 +586,6 @@ export default function ExpensesPage() {
         isLoading={saving}
         itemName="esta despesa"
       />
-    </div>
+    </motion.div>
   )
 }

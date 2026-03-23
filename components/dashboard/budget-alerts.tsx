@@ -96,37 +96,35 @@ export function BudgetAlerts({
   if (alerts.length === 0) return null
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-sm font-medium text-muted-foreground">
-          Alertas de Orcamento
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-foreground tracking-wide uppercase">Atenção ao Orçamento</h3>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
         {alerts.map((alert) => (
           <div
             key={alert.id}
-            className="flex items-center justify-between rounded-lg border border-border/60 bg-card/40 px-4 py-3"
+            className="flex items-center justify-between rounded-2xl border border-white/5 bg-card/20 glass-panel px-5 py-4 hover:bg-card/30 transition-colors"
           >
             <div>
-              <p className="text-sm font-medium text-foreground">
-                {categoryMap.get(alert.category_id) ?? "Sem categoria"}
+              <p className="text-sm font-bold text-foreground">
+                {categoryMap.get(alert.category_id) ?? "Geral"}
               </p>
-              <p className="text-xs text-muted-foreground">
-                {alert.percent.toFixed(0)}% do orcamento
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {alert.percent.toFixed(0)}% Utilizado
               </p>
             </div>
             <div className="text-right">
-              <p className="text-sm font-semibold text-destructive">
+              <p className="text-sm font-bold text-destructive">
                 {formatCurrency(alert.spent)}
               </p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-0.5">
                 Limite {formatCurrency(alert.limit_value)}
               </p>
             </div>
           </div>
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

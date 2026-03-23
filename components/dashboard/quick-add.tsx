@@ -8,6 +8,9 @@ import { useKeyboardShortcuts, CommonShortcuts } from "@/hooks/use-keyboard-shor
 import { useLocalCache, useOnlineStatus } from "@/hooks/use-cache"
 import { expenseSchema, incomeSchema } from "@/lib/validators"
 import ErrorHandler from "@/lib/error-handler"
+import { useSmartCategory } from "@/hooks/use-smart-category"
+import { FileUpload } from "@/components/ui/file-upload"
+import { uploadReceipt } from "@/lib/upload-receipt"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -52,11 +55,15 @@ export function QuickAdd() {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
   const [paymentMethod, setPaymentMethod] = useState("debit")
   const [categoryId, setCategoryId] = useState("")
+  const [receiptUrl, setReceiptUrl] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   const filteredCategories = (categories ?? []).filter(
     (cat) => cat.type === type
   )
+
+  // Smart Categorization based on input
+  useSmartCategory(name, filteredCategories, categoryId, setCategoryId)
 
   // Setup keyboard shortcuts
   useKeyboardShortcuts([
@@ -150,6 +157,7 @@ export function QuickAdd() {
           value: parseMoneyToNumber(value),
           date,
           category_id: categoryId || undefined,
+          receipt_url: receiptUrl || undefined,
         })
       : expenseSchema.safeParse({
           name,
@@ -158,6 +166,7 @@ export function QuickAdd() {
           category_id: categoryId || undefined,
           payment_method: paymentMethod,
           is_essential: false,
+          receipt_url: receiptUrl || undefined,
         })
 
     if (!parseResult.success) {
@@ -217,6 +226,7 @@ export function QuickAdd() {
       setValue("")
       setDate(new Date().toISOString().slice(0, 10))
       setCategoryId("")
+      setReceiptUrl(null)
       if (type === "expense") setPaymentMethod("debit")
     } catch (err: any) {
       const appError = ErrorHandler.fromSupabaseError(err)
@@ -323,6 +333,16 @@ export function QuickAdd() {
         </div>
       )}
 
+      <div className="grid gap-2">
+        <Label>Comprovante (Opcional)</Label>
+        <FileUpload
+          value={receiptUrl}
+          onChange={setReceiptUrl}
+          onUpload={uploadReceipt}
+          disabled={saving || !isOnline}
+        />
+      </div>
+
       <Button
         onClick={handleSave}
         disabled={saving}
@@ -337,12 +357,11 @@ export function QuickAdd() {
     <>
       <Button
         onClick={() => setOpen(true)}
-        className="fixed bottom-[4.75rem] left-1/2 z-40 h-12 w-[calc(100%-2.5rem)] max-w-sm -translate-x-1/2 rounded-full shadow-[0_12px_30px_rgba(0,0,0,0.35)] lg:hidden"
+        className="fixed bottom-[5.5rem] right-5 z-50 h-14 w-14 rounded-full shadow-[0_8px_30px_var(--tw-shadow-color)] shadow-primary/30 bg-gradient-to-tr from-primary to-teal-400 hover:scale-105 active:scale-95 transition-all text-primary-foreground lg:hidden flex items-center justify-center p-0"
         aria-label="Adicionar rápido"
         title="Ctrl+D (Despesa) ou Ctrl+R (Receita)"
       >
-        <Plus className="mr-2 h-5 w-5" />
-        Adicionar rápido
+        <Plus className="h-6 w-6" />
       </Button>
 
       {isMobile ? (

@@ -12,10 +12,14 @@ import {
   AlertTriangle,
   CalendarClock,
   Target,
+  Target,
   Wallet,
+  BellRing,
+  BellOff,
 } from "lucide-react"
 import { mutate } from "swr"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { usePushNotifications } from "@/hooks/use-push-notifications"
 
 const FILTER_PARAM = "notificationsFilter"
 
@@ -35,12 +39,13 @@ export function NotificationsPanel({
   subtitle = "Avisos de vencimentos, metas e atividades do sistema.",
 }: NotificationsPanelProps) {
   const { data: notifications, isLoading } = useNotifications()
-  const [dense, setDense] = useState(false)
-  const [filterAnimating, setFilterAnimating] = useState(false)
-  const filterTimer = useRef<NodeJS.Timeout | null>(null)
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname() ?? "/"
+  const filter = normalizeFilter(searchParams.get(FILTER_PARAM))
+  const searchParamString = searchParams.toString()
+
+  const { permission, requestPermission } = usePushNotifications()
   const filter = normalizeFilter(searchParams.get(FILTER_PARAM))
   const searchParamString = searchParams.toString()
 
@@ -132,7 +137,33 @@ export function NotificationsPanel({
           <p className="text-xs text-muted-foreground">{subtitle}</p>
           <p className="text-xs text-muted-foreground">{unreadCount} nao lidas</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {permission === "default" && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-primary/50 text-primary hover:bg-primary/10 dark:border-primary/30"
+              onClick={requestPermission}
+            >
+              <BellRing className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Ativar Alertas de Contas</span>
+              <span className="sm:hidden">Ativar Alertas</span>
+            </Button>
+          )}
+          {permission === "denied" && (
+            <Badge variant="destructive" className="h-9 px-3">
+              <BellOff className="mr-2 h-3 w-3" />
+              Bloqueado
+            </Badge>
+          )}
+          {permission === "granted" && (
+            <Badge variant="secondary" className="h-9 px-3 bg-primary/10 text-primary hover:bg-primary/20">
+              <BellRing className="mr-2 h-3 w-3" />
+              <span className="hidden sm:inline">Alertas Ativos</span>
+              <span className="sm:hidden">Ativos</span>
+            </Badge>
+          )}
+          
           <Button
             size="sm"
             variant="ghost"

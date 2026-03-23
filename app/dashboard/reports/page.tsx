@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client"
 import { formatCurrency, formatDate, MONTHS } from "@/lib/format"
 import { exportToCSV } from "@/components/dashboard/advanced-filters"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -15,7 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { motion } from "framer-motion"
+import { FileDown, FileText, TrendingDown, TrendingUp, WalletCards } from "lucide-react"
 import jsPDF from "jspdf"
+import html2canvas from "html2canvas"
+import { toast } from "sonner"
 
 interface ReportRow {
   income: number
@@ -120,7 +124,7 @@ export default function ReportsPage() {
           category: row.category?.name ?? "",
           amount: Number(row.value),
           paymentMethod: row.payment_method ?? "",
-          essential: row.is_essential ? "Sim" : "Nao",
+          essential: row.is_essential ? "Sim" : "Não",
         }))
 
         const merged = [...incomeRows, ...expenseRows]
@@ -205,13 +209,13 @@ export default function ReportsPage() {
       `relatorio-mensal-${report.year}-${String(report.month).padStart(2, "0")}`,
       [
         { key: "row_type", label: "Tipo de Linha" },
-        { key: "period", label: "Periodo" },
+        { key: "period", label: "Período" },
         { key: "date", label: "Data" },
         { key: "type", label: "Tipo" },
-        { key: "description", label: "Descricao" },
+        { key: "description", label: "Descrição" },
         { key: "category", label: "Categoria" },
         { key: "amount", label: "Valor" },
-        { key: "payment_method", label: "Metodo" },
+        { key: "payment_method", label: "Método" },
         { key: "essential", label: "Essencial" },
         { key: "income_total", label: "Total Receitas" },
         { key: "expense_total", label: "Total Despesas" },
@@ -226,90 +230,90 @@ export default function ReportsPage() {
     )
   }
 
-  const handlePDF = () => {
+  const handlePDF = async () => {
     if (!report) return
-    const doc = new jsPDF()
-    const currentBalance = report.income - report.expense
-    const prevIncome = previous?.income ?? 0
-    const prevExpense = previous?.expense ?? 0
-    const prevBalance = prevIncome - prevExpense
-    const incomeDelta = report.income - prevIncome
-    const expenseDelta = report.expense - prevExpense
-    const balanceDelta = currentBalance - prevBalance
-    const pageHeight = 280
-    const left = 14
-    let y = 20
+    const element = document.getElementById("report-content")
+    if (!element) return
 
-    doc.setFontSize(16)
-    doc.text("Relatorio Mensal - NexFinance", left, y)
-    doc.setFontSize(12)
-    y += 12
-    doc.text(`Mes: ${MONTHS[report.month - 1]} ${report.year}`, left, y)
-    y += 12
-    doc.text(`Receitas: ${formatCurrency(report.income)}`, left, y)
-    y += 12
-    doc.text(`Despesas: ${formatCurrency(report.expense)}`, left, y)
-    y += 12
-    doc.text(`Saldo: ${formatCurrency(currentBalance)}`, left, y)
-    y += 12
-    doc.text(
-      `Comparativo (mes anterior): ${formatCurrency(incomeDelta)} / ${formatCurrency(expenseDelta)} / ${formatCurrency(balanceDelta)}`,
-      left,
-      y
-    )
+    toast.loading("Gerando PDF Mágico...", { id: "pdf-gen" })
 
-    y += 14
-    doc.setFontSize(11)
-    doc.text("Detalhamento", left, y)
-    y += 8
-    doc.setFontSize(10)
-    doc.text("Data", left, y)
-    doc.text("Tipo", left + 28, y)
-    doc.text("Descricao", left + 52, y)
-    doc.text("Valor", left + 150, y)
-    y += 6
+    try {
+      // Force white background and good scale
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+      })
+      const imgData = canvas.toDataURL("image/jpeg", 0.95)
 
-    const truncate = (text: string, max: number) =>
-      text.length > max ? `${text.slice(0, max - 1)}...` : text
+      const pdf = new jsPDF("p", "mm", "a4")
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width
 
-    for (const row of details) {
-      if (y > pageHeight) {
-        doc.addPage()
-        y = 20
-        doc.setFontSize(10)
-        doc.text("Data", left, y)
-        doc.text("Tipo", left + 28, y)
-        doc.text("Descricao", left + 52, y)
-        doc.text("Valor", left + 150, y)
-        y += 6
-      }
-      doc.text(formatDate(row.date), left, y)
-      doc.text(row.type, left + 28, y)
-      doc.text(truncate(row.description, 50), left + 52, y)
-      doc.text(formatCurrency(row.amount), left + 150, y, { align: "left" })
-      y += 6
+      // Draw a Premium Header
+      pdf.setFillColor(15, 23, 42) // Slate 900
+      pdf.rect(0, 0, pdfWidth, 40, "F")
+
+      pdf.setTextColor(255, 255, 255)
+      pdf.setFontSize(24)
+      pdf.setFont("helvetica", "bold")
+      pdf.text("NexFinance", 15, 22)
+
+      pdf.setFontSize(11)
+      pdf.setFont("helvetica", "normal")
+      pdf.text(`Relatório Financeiro Premium • ${MONTHS[report.month - 1]} ${report.year}`, 15, 30)
+
+      pdf.setTextColor(150, 150, 150)
+      pdf.setFontSize(9)
+      pdf.text("Docs Confidenciais", pdfWidth - 40, 25)
+
+      // Add the Dashboard Screenshot below header
+      pdf.addImage(imgData, "JPEG", 0, 45, pdfWidth, pdfHeight)
+
+      pdf.save(`NexFinance-${report.year}-${String(report.month).padStart(2, "0")}.pdf`)
+      toast.success("PDF baixado com sucesso!", { id: "pdf-gen" })
+    } catch (err) {
+      console.error(err)
+      toast.error("Falha ao gerar PDF. Tente novamente.", { id: "pdf-gen" })
     }
-    doc.save(
-      `relatorio-mensal-${report.year}-${String(report.month).padStart(2, "0")}.pdf`
-    )
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Relatorios</h1>
-        <p className="text-muted-foreground">Resumo mensal e comparativo.</p>
+    <motion.div 
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="flex flex-col gap-8"
+    >
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">Relatórios</h1>
+          <p className="text-muted-foreground mt-1">Resumo mensal e comparativo da sua saúde financeira.</p>
+        </div>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={handleCSV} className="rounded-full shadow-sm hover:shadow-md transition-shadow">
+            <FileDown className="mr-2 h-4 w-4 text-primary" />
+            <span className="hidden sm:inline">Exportar CSV</span>
+            <span className="sm:hidden">CSV</span>
+          </Button>
+          <Button variant="outline" onClick={handlePDF} className="rounded-full shadow-sm hover:shadow-md transition-shadow">
+            <FileText className="mr-2 h-4 w-4 text-destructive" />
+            <span className="hidden sm:inline">Gerar PDF</span>
+            <span className="sm:hidden">PDF</span>
+          </Button>
+        </div>
       </div>
 
-      <Card>
-        <CardContent className="grid gap-4 p-6 md:grid-cols-2">
+      <Card className="glass-panel border-0 shadow-sm overflow-hidden relative">
+        <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-primary/50 to-teal-400" />
+        <CardContent className="grid gap-6 p-6 sm:grid-cols-2 lg:p-8">
           <div className="grid gap-2">
-            <Label>Mes</Label>
+            <Label className="text-sm font-medium text-muted-foreground ml-1">Mês de Referência</Label>
             <Select
               value={String(selectedMonth)}
               onValueChange={(v) => setSelectedMonth(Number(v))}
             >
-              <SelectTrigger>
+              <SelectTrigger className="h-11 bg-background/50 backdrop-blur-sm border-input/50 rounded-xl">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -322,12 +326,12 @@ export default function ReportsPage() {
             </Select>
           </div>
           <div className="grid gap-2">
-            <Label>Ano</Label>
+            <Label className="text-sm font-medium text-muted-foreground ml-1">Ano</Label>
             <Select
               value={String(selectedYear)}
               onValueChange={(v) => setSelectedYear(Number(v))}
             >
-              <SelectTrigger>
+              <SelectTrigger className="h-11 bg-background/50 backdrop-blur-sm border-input/50 rounded-xl">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -343,53 +347,96 @@ export default function ReportsPage() {
       </Card>
 
       {report && (
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardContent className="p-6">
-              <p className="text-xs text-muted-foreground">Receitas</p>
-              <p className="text-2xl font-semibold text-success">
-                {formatCurrency(report.income)}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <p className="text-xs text-muted-foreground">Despesas</p>
-              <p className="text-2xl font-semibold text-destructive">
-                {formatCurrency(report.expense)}
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="p-6">
-              <p className="text-xs text-muted-foreground">Saldo</p>
-              <p className="text-2xl font-semibold">
-                {formatCurrency(report.income - report.expense)}
-              </p>
-            </CardContent>
-          </Card>
+        <div id="report-content" className="space-y-6 pt-2 pb-6 px-1 rounded-3xl bg-background">
+          <div className="grid gap-4 md:grid-cols-3">
+            <Card className="glass-panel border-0 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+              <div className="absolute right-0 top-0 w-24 h-24 bg-success/5 rounded-bl-full transition-transform group-hover:scale-110" />
+              <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Receitas do Mês
+                </CardTitle>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-success/10">
+                  <TrendingUp className="h-5 w-5 text-success" />
+                </div>
+              </CardHeader>
+              <CardContent className="relative z-10">
+                <p className="text-3xl font-bold text-success">
+                  {formatCurrency(report.income)}
+                </p>
+              </CardContent>
+            </Card>
+            
+            <Card className="glass-panel border-0 relative overflow-hidden group hover:shadow-md transition-all duration-300">
+              <div className="absolute right-0 top-0 w-24 h-24 bg-destructive/5 rounded-bl-full transition-transform group-hover:scale-110" />
+              <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Despesas do Mês
+                </CardTitle>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10">
+                  <TrendingDown className="h-5 w-5 text-destructive" />
+                </div>
+              </CardHeader>
+              <CardContent className="relative z-10">
+                <p className="text-3xl font-bold text-destructive">
+                  {formatCurrency(report.expense)}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="glass-panel border-0 shadow-md relative overflow-hidden group hover:shadow-lg transition-all duration-300">
+              <div className="absolute right-0 top-0 w-24 h-24 bg-primary/5 rounded-bl-full transition-transform group-hover:scale-110" />
+              <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Saldo Final
+                </CardTitle>
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+                  <WalletCards className="h-5 w-5 text-primary" />
+                </div>
+              </CardHeader>
+              <CardContent className="relative z-10">
+                <p className={`text-3xl font-bold ${report.income - report.expense >= 0 ? 'text-primary' : 'text-destructive'}`}>
+                  {formatCurrency(report.income - report.expense)}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {previous && (
+            <Card className="border-0 bg-muted/20 backdrop-blur-sm rounded-2xl overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-foreground">
+                      Desempenho comparativo
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Referência: <span className="font-medium text-foreground">{MONTHS[previous.month - 1]} {previous.year}</span>
+                    </p>
+                  </div>
+                  <div className="flex gap-6">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Receitas no período</p>
+                      <p className="text-sm font-medium text-foreground">{formatCurrency(previous.income)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Despesas no período</p>
+                      <p className="text-sm font-medium text-foreground">{formatCurrency(previous.expense)}</p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
-      {previous && report && (
-        <Card>
-          <CardContent className="p-6">
-            <p className="text-sm text-muted-foreground">
-              Comparativo com {MONTHS[previous.month - 1]} {previous.year}
-            </p>
-            <p className="text-sm">
-              Receitas: {formatCurrency(previous.income)} | Despesas: {formatCurrency(previous.expense)}
-            </p>
-          </CardContent>
-        </Card>
+      {details.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-12 text-center bg-muted/10 rounded-3xl border border-border/30 border-dashed mt-4">
+          <FileText className="h-10 w-10 text-muted-foreground/30 mb-3" />
+          <p className="text-base font-medium text-muted-foreground">Nenhuma transação neste período</p>
+          <p className="text-sm text-muted-foreground/70 max-w-sm mt-1">Gere um relatório escolhendo um mês com transações.</p>
+        </div>
       )}
-
-      <div className="flex gap-3">
-        <Button onClick={handleCSV}>Exportar CSV</Button>
-        <Button variant="outline" onClick={handlePDF}>
-          Exportar PDF
-        </Button>
-      </div>
-    </div>
+    </motion.div>
   )
 }

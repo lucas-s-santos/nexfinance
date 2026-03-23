@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
+import { motion } from "framer-motion"
 
 interface HeroStatsProps {
   totalIncome: number
@@ -25,6 +26,7 @@ interface HeroStatsProps {
   debitUsage: number
   investmentUsage: number
   reservedTotal: number
+  healthScore?: number
 }
 
 export function HeroStats({
@@ -38,6 +40,7 @@ export function HeroStats({
   debitUsage,
   investmentUsage,
   reservedTotal,
+  healthScore = 50,
 }: HeroStatsProps) {
   const renderValue = (value: number) =>
     showValues ? formatCurrency(value) : "R$ ••••"
@@ -47,205 +50,250 @@ export function HeroStats({
   const expensePercentage = totalIncome > 0 ? (totalExpenses / totalIncome) * 100 : 0
   const savingsPercentage = totalIncome > 0 ? (displayBalance / totalIncome) * 100 : 0
   const isPositive = displayBalance >= 0
-  const healthColor = expensePercentage <= 50 ? "text-success" : expensePercentage <= 75 ? "text-warning" : "text-destructive"
+  const expenseColor = expensePercentage <= 50 ? "text-success" : expensePercentage <= 75 ? "text-warning" : "text-destructive"
+  const scoreColor = healthScore >= 80 ? "text-success" : healthScore >= 50 ? "text-blue-500" : "text-destructive"
+  const scoreLabel = healthScore >= 80 ? "Excelente" : healthScore >= 50 ? "Bom" : "Atenção"
 
   return (
     <div className="space-y-6">
       {/* Header com período */}
-      <div className="flex items-center justify-between mb-8">
+      <motion.div 
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="flex items-center justify-between mb-4 sm:mb-8"
+      >
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-primary via-purple-500 to-pink-500 bg-clip-text text-transparent">
-            NexFinance
+          <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-primary via-blue-500 to-teal-400 bg-clip-text text-transparent">
+            Resumo Geral
           </h1>
-          <p className="text-muted-foreground flex items-center gap-2 mt-1">
+          <p className="text-muted-foreground flex items-center gap-2 mt-1 text-sm sm:text-base">
             <Calendar className="h-4 w-4" />
             {MONTHS[month - 1]} de {year}
           </p>
         </div>
-      </div>
+      </motion.div>
 
       {/* Main Hero Card */}
-      <div className="relative">
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/30 via-purple-500/30 to-pink-500/30 rounded-2xl blur-xl opacity-50" />
-        <Card className="relative glass-panel border-0 bg-gradient-to-br from-slate-900/80 via-slate-900/60 to-slate-800/80 overflow-hidden">
-          <CardContent className="p-8">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {/* Balance */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.6, delay: 0.1 }}
+        className="relative"
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-blue-500/20 to-teal-400/20 rounded-[2rem] blur-2xl opacity-50 dark:opacity-40" />
+        <Card className="relative glass-panel border border-border/50 bg-gradient-to-br from-background/90 via-background/60 to-muted/40 overflow-hidden shadow-xl rounded-[2rem]">
+          <CardContent className="p-6 sm:p-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+              {/* Saldo Principal */}
+              <div className="space-y-5 lg:pr-6 lg:border-r border-border/50">
+                <div className="flex items-center gap-2">
+                  <div className={cn("p-2 rounded-xl", isPositive ? "bg-success/10" : "bg-destructive/10")}>
                     <Wallet className={cn("h-5 w-5", isPositive ? "text-success" : "text-destructive")} />
-                    <p className="text-sm text-muted-foreground">Saldo Restante</p>
                   </div>
+                  <p className="text-sm font-medium text-muted-foreground">Saldo Restante</p>
+                </div>
+                <div>
                   <p className={cn(
-                    "text-4xl font-bold",
+                    "text-4xl sm:text-5xl font-bold tracking-tight",
                     isPositive ? "text-success" : "text-destructive"
                   )}>
                     {renderValue(displayBalance)}
                   </p>
                   {reservedTotal > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                      Inclui {renderValue(reservedTotal)} bloqueados em reservas/investimentos
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Inclui {renderValue(reservedTotal)} bloqueados.
                     </p>
                   )}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Situação financeira</span>
-                    <span className={healthColor}>{expensePercentage.toFixed(1)}% gasto</span>
+                </div>
+                
+                <div className="space-y-2 pt-2">
+                  <div className="flex justify-between text-xs font-medium text-muted-foreground">
+                    <span>Comprometimento</span>
+                    <span className={expenseColor}>{expensePercentage.toFixed(1)}% utilizado</span>
                   </div>
-                  <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
-                    <div
+                  <div className="w-full bg-secondary rounded-full h-2.5 overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(expensePercentage, 100)}%` }}
+                      transition={{ duration: 1, delay: 0.5, type: "spring" }}
                       className={cn(
-                        "h-full rounded-full transition-all",
+                        "h-full rounded-full transition-colors",
                         expensePercentage <= 50 ? "bg-success" : expensePercentage <= 75 ? "bg-warning" : "bg-destructive"
                       )}
-                      style={{ width: `${Math.min(expensePercentage, 100)}%` }}
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Income vs Expenses */}
+              {/* Entradas x Saídas */}
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2 p-4 rounded-lg bg-success/10 border border-success/20">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <div className="space-y-2 p-4 rounded-2xl bg-success/5 border border-success/10 hover:bg-success/10 transition-colors">
                     <div className="flex items-center gap-2">
                       <TrendingUp className="h-4 w-4 text-success" />
-                      <p className="text-xs text-muted-foreground">Receitas</p>
+                      <p className="text-xs font-medium text-muted-foreground">Receitas</p>
                     </div>
-                    <p className="text-xl font-bold text-success">
+                    <p className="text-lg sm:text-xl font-bold text-success">
                       {renderValue(totalIncome)}
                     </p>
                   </div>
-                  <div className="space-y-2 p-4 rounded-lg bg-destructive/10 border border-destructive/20">
+                  <div className="space-y-2 p-4 rounded-2xl bg-destructive/5 border border-destructive/10 hover:bg-destructive/10 transition-colors">
                     <div className="flex items-center gap-2">
                       <TrendingDown className="h-4 w-4 text-destructive" />
-                      <p className="text-xs text-muted-foreground">Despesas</p>
+                      <p className="text-xs font-medium text-muted-foreground">Despesas</p>
                     </div>
-                    <p className="text-xl font-bold text-destructive">
+                    <p className="text-lg sm:text-xl font-bold text-destructive">
                       {renderValue(totalExpenses)}
                     </p>
                   </div>
                 </div>
 
-                {/* Donut Chart Percentages */}
-                <div className="space-y-2 pt-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Distribuição orçamentária</span>
-                    <span className="text-muted-foreground">{(100 - savingsPercentage).toFixed(1)}% gasto</span>
+                <div className="pt-2">
+                  <div className="flex items-center justify-between text-xs font-medium mb-2">
+                    <span className="text-muted-foreground">Distribuição</span>
+                    <span className="text-muted-foreground">{(100 - savingsPercentage).toFixed(1)}%</span>
                   </div>
-                  <div className="flex gap-2">
-                    <div className="flex-1 h-8 rounded-lg overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-destructive to-orange-500 flex items-center justify-center text-xs font-semibold text-white"
-                        style={{ width: "100%" }}
-                      >
-                        {expensePercentage > 10 && `${expensePercentage.toFixed(0)}%`}
-                      </div>
-                    </div>
+                  <div className="w-full bg-secondary rounded-full h-2 overflow-hidden flex">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(expensePercentage, 100)}%` }}
+                      transition={{ duration: 1, delay: 0.7 }}
+                      className="h-full bg-destructive"
+                    />
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.max(100 - expensePercentage, 0)}%` }}
+                      transition={{ duration: 1, delay: 0.7 }}
+                      className="h-full bg-success"
+                    />
                   </div>
                 </div>
               </div>
 
               {/* Quick Metrics */}
-              <div className="space-y-3">
-                <div className="space-y-3">
-                  <div className="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                    <p className="text-xs text-muted-foreground mb-1">Disponível</p>
-                    <p className="text-2xl font-bold text-blue-400">
+              <div className="space-y-3 sm:space-y-4 h-full flex flex-col justify-center">
+                <div className="p-4 sm:p-5 rounded-2xl bg-blue-500/5 border border-blue-500/10 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Poder de Poupança</p>
+                    <p className="text-2xl font-bold text-blue-500">
                       {savingsPercentage > 0 ? `${savingsPercentage.toFixed(1)}%` : "0%"}
                     </p>
                   </div>
-                  <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20">
-                    <p className="text-xs text-muted-foreground mb-1">Saúde Financeira</p>
-                    <p className="text-2xl font-bold text-purple-400">
-                      {expensePercentage <= 50 ? "Excelente" : expensePercentage <= 75 ? "Bom" : "Crítico"}
-                    </p>
+                  <div className="p-3 bg-blue-500/10 text-blue-500 rounded-full">
+                    <PiggyBank className="h-5 w-5" />
+                  </div>
+                </div>
+                <div className="p-4 sm:p-5 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Saúde Financeira</p>
+                    <div className="flex items-center gap-2">
+                       <p className={cn("text-xl sm:text-2xl font-bold", scoreColor)}>
+                         {healthScore}/100
+                       </p>
+                       <span className="text-xs hidden sm:inline-block font-medium text-muted-foreground">({scoreLabel})</span>
+                    </div>
+                  </div>
+                  <div className="p-3 bg-primary/10 text-primary rounded-full relative">
+                    <Target className="h-5 w-5" />
+                    {/* Pulsing effect if score is very high */}
+                    {healthScore >= 90 && (
+                      <span className="absolute top-0 right-0 flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-success"></span>
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
       {/* Secondary Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
+        className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4"
+      >
         <div className="group relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-primary/5 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
-          <Card className="glass-panel border-0 relative cursor-pointer hover:shadow-lg transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground font-medium">Cartão Crédito</p>
-                  <p className="text-xl font-bold text-primary">
+          <Card className="glass-panel border-0 relative cursor-pointer hover:shadow-md transition-all hover:-translate-y-1 overflow-hidden">
+            <div className="absolute right-0 top-0 w-16 h-16 bg-primary/5 rounded-bl-full transition-transform group-hover:scale-110" />
+            <CardContent className="p-4 sm:p-5">
+              <div className="space-y-3 relative z-10">
+                <div className="p-2 w-fit rounded-lg bg-primary/10">
+                  <CreditCard className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Cartão Crédito</p>
+                  <p className="text-lg font-bold text-foreground">
                     {renderValue(creditUsage)}
                   </p>
                 </div>
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <CreditCard className="h-4 w-4 text-primary" />
-                </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
         <div className="group relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
-          <Card className="glass-panel border-0 relative cursor-pointer hover:shadow-lg transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground font-medium">Cartão Débito</p>
-                  <p className="text-xl font-bold text-emerald-500">
+          <Card className="glass-panel border-0 relative cursor-pointer hover:shadow-md transition-all hover:-translate-y-1 overflow-hidden">
+            <div className="absolute right-0 top-0 w-16 h-16 bg-success/5 rounded-bl-full transition-transform group-hover:scale-110" />
+            <CardContent className="p-4 sm:p-5">
+              <div className="space-y-3 relative z-10">
+                <div className="p-2 w-fit rounded-lg bg-success/10">
+                  <Banknote className="h-4 w-4 text-success" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Débito / Pix</p>
+                  <p className="text-lg font-bold text-foreground">
                     {renderValue(debitUsage)}
                   </p>
                 </div>
-                <div className="p-2 rounded-lg bg-emerald-500/10">
-                  <Banknote className="h-4 w-4 text-emerald-500" />
-                </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
         <div className="group relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 to-amber-500/5 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
-          <Card className="glass-panel border-0 relative cursor-pointer hover:shadow-lg transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground font-medium">Investimentos</p>
-                  <p className="text-xl font-bold text-amber-500">
+          <Card className="glass-panel border-0 relative cursor-pointer hover:shadow-md transition-all hover:-translate-y-1 overflow-hidden">
+            <div className="absolute right-0 top-0 w-16 h-16 bg-amber-500/5 rounded-bl-full transition-transform group-hover:scale-110" />
+            <CardContent className="p-4 sm:p-5">
+              <div className="space-y-3 relative z-10">
+                <div className="p-2 w-fit rounded-lg bg-amber-500/10">
+                  <Wallet className="h-4 w-4 text-amber-500" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Investimentos</p>
+                  <p className="text-lg font-bold text-foreground">
                     {renderValue(investmentUsage)}
                   </p>
                 </div>
-                <div className="p-2 rounded-lg bg-amber-500/10">
-                  <PiggyBank className="h-4 w-4 text-amber-500" />
-                </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
         <div className="group relative">
-          <div className="absolute inset-0 bg-gradient-to-br from-pink-500/20 to-pink-500/5 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
-          <Card className="glass-panel border-0 relative cursor-pointer hover:shadow-lg transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground font-medium">Economia Este Mês</p>
-                  <p className="text-xl font-bold text-pink-500">
+          <Card className="glass-panel border-0 relative cursor-pointer hover:shadow-md transition-all hover:-translate-y-1 overflow-hidden">
+            <div className="absolute right-0 top-0 w-16 h-16 bg-teal-500/5 rounded-bl-full transition-transform group-hover:scale-110" />
+            <CardContent className="p-4 sm:p-5">
+              <div className="space-y-3 relative z-10">
+                <div className="p-2 w-fit rounded-lg bg-teal-500/10">
+                  <Target className="h-4 w-4 text-teal-500" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground">Metas Atingidas</p>
+                  <p className="text-lg font-bold text-foreground">
                     {savingsPercentage.toFixed(1)}%
                   </p>
-                </div>
-                <div className="p-2 rounded-lg bg-pink-500/10">
-                  <Target className="h-4 w-4 text-pink-500" />
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
-      </div>
+      </motion.div>
     </div>
   )
 }

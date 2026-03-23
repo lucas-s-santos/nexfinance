@@ -15,6 +15,7 @@ export const incomeSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida"),
   category_id: z.string().optional(),
   description: z.string().max(500).optional(),
+  receipt_url: z.string().url().optional(),
 })
 
 export const expenseSchema = z.object({
@@ -35,6 +36,7 @@ export const expenseSchema = z.object({
   ),
   is_essential: z.boolean().default(false),
   description: z.string().max(500).optional(),
+  receipt_url: z.string().url().optional(),
 })
 
 // ===== VALIDADORES COM REGRAS DE NEGÓCIO =====

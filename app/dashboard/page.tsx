@@ -24,7 +24,7 @@ import { GoalsCard } from "@/components/dashboard/goals-card"
 import { UpcomingBills } from "@/components/dashboard/upcoming-bills"
 import { MonthlyTrend } from "@/components/dashboard/monthly-trend"
 import { BudgetAlerts } from "@/components/dashboard/budget-alerts"
-import { FinancialAlertsDisplay } from "@/components/dashboard/financial-alerts-display"
+import { QuickInsights } from "@/components/dashboard/quick-insights"
 import { MONTHS } from "@/lib/format"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
@@ -295,8 +295,9 @@ export default function DashboardPage() {
               debitUsage={financialSummary.debitUsage}
               investmentUsage={financialSummary.investmentUsage}
               reservedTotal={financialSummary.reservedTotal}
+              healthScore={healthScore}
             />
-            <FinancialAlertsDisplay
+            <QuickInsights
               expenses={expenses ?? []}
               budgets={budgets}
               bills={bills ?? []}
