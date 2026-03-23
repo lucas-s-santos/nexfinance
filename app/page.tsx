@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { ArrowRight, Shield, TrendingUp, Radar, Sparkles, Activity, Layers } from "lucide-react"
 import { motion } from "framer-motion"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 // Helper animation variants
 const fadeUp = {
@@ -58,6 +59,7 @@ export default function HomePage() {
           transition={{ duration: 0.5, delay: 0.2 }}
           className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center"
         >
+          <ThemeToggle />
           <Button variant="ghost" asChild className="w-full sm:w-auto hover:bg-white/5 rounded-xl">
             <Link href="/auth/login">Acessar Base</Link>
           </Button>
@@ -91,7 +93,7 @@ export default function HomePage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1 }}
-            className="font-display text-5xl font-extrabold leading-[1.05] tracking-tight text-white md:text-7xl max-w-4xl"
+            className="font-display text-5xl font-extrabold leading-[1.05] tracking-tight text-foreground md:text-7xl max-w-4xl"
           >
             Sua vida financeira, <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-teal-300 to-blue-400 drop-shadow-sm">perfeitamente orquestrada.</span>
           </motion.h1>
@@ -131,38 +133,38 @@ export default function HomePage() {
             className="w-full max-w-5xl mt-16 relative"
           >
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10 rounded-b-3xl" />
-            <div className="relative rounded-3xl border border-white/10 bg-black/40 p-4 sm:p-6 backdrop-blur-2xl shadow-2xl mx-auto overflow-hidden">
+            <div className="relative rounded-3xl border border-border/10 bg-card/40 p-4 sm:p-6 backdrop-blur-2xl shadow-2xl mx-auto overflow-hidden">
               <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-50" />
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 
                 {/* Mock Card 1 */}
-                <div className="glass-panel border-white/5 rounded-2xl p-6 bg-card/20 shadow-inner translate-y-4 hover:translate-y-0 shadow-black/50 transition-all duration-500">
+                <div className="glass-panel border-border/5 rounded-2xl p-6 bg-card/20 shadow-inner translate-y-4 hover:translate-y-0 shadow-black/5 transition-all duration-500">
                   <div className="w-10 h-10 rounded-full bg-success/20 flex items-center justify-center mb-4 text-success">
                     <TrendingUp className="h-5 w-5" />
                   </div>
-                  <div className="h-2 w-1/3 bg-white/10 rounded-full mb-3" />
-                  <div className="text-3xl font-display font-bold text-white mb-2">R$ 15.240,00</div>
+                  <div className="h-2 w-1/3 bg-foreground/10 rounded-full mb-3" />
+                  <div className="text-3xl font-display font-bold text-foreground mb-2">R$ 15.240,00</div>
                   <div className="h-1.5 w-1/2 bg-success/40 rounded-full" />
                 </div>
 
                 {/* Mock Card 2 */}
-                <div className="glass-panel border-white/5 rounded-2xl p-6 bg-card/20 shadow-inner -translate-y-2 hover:-translate-y-4 shadow-black/50 transition-all duration-500 relative overflow-hidden">
+                <div className="glass-panel border-border/5 rounded-2xl p-6 bg-card/20 shadow-inner -translate-y-2 hover:-translate-y-4 shadow-black/5 transition-all duration-500 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-bl-full blur-2xl" />
                   <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center mb-4 text-primary relative z-10">
                     <Activity className="h-5 w-5" />
                   </div>
-                  <div className="h-2 w-1/3 bg-white/10 rounded-full mb-3 relative z-10" />
-                  <div className="text-3xl font-display font-bold text-white mb-2 relative z-10">R$ +4.100,50</div>
+                  <div className="h-2 w-1/3 bg-foreground/10 rounded-full mb-3 relative z-10" />
+                  <div className="text-3xl font-display font-bold text-foreground mb-2 relative z-10">R$ +4.100,50</div>
                   <div className="h-1.5 w-full bg-primary/40 rounded-full relative z-10" />
                 </div>
 
                 {/* Mock Card 3 */}
-                <div className="glass-panel border-white/5 rounded-2xl p-6 bg-card/20 shadow-inner translate-y-6 hover:translate-y-2 shadow-black/50 transition-all duration-500">
+                <div className="glass-panel border-border/5 rounded-2xl p-6 bg-card/20 shadow-inner translate-y-6 hover:translate-y-2 shadow-black/5 transition-all duration-500">
                   <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center mb-4 text-blue-500">
                     <Layers className="h-5 w-5" />
                   </div>
-                  <div className="h-2 w-1/3 bg-white/10 rounded-full mb-3" />
-                  <div className="text-3xl font-display font-bold text-white mb-2">8 Metas Ativas</div>
+                  <div className="h-2 w-1/3 bg-foreground/10 rounded-full mb-3" />
+                  <div className="text-3xl font-display font-bold text-foreground mb-2">8 Metas Ativas</div>
                   <div className="h-1.5 w-3/4 bg-blue-500/40 rounded-full" />
                 </div>
               </div>
@@ -179,38 +181,38 @@ export default function HomePage() {
           className="flex flex-col items-center mt-12"
         >
           <motion.div variants={fadeUp} className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl font-display font-bold text-white mb-4">Tudo o que você precisa. Mágica pura.</h2>
+            <h2 className="text-3xl md:text-5xl font-display font-bold text-foreground mb-4">Tudo o que você precisa. Mágica pura.</h2>
             <p className="text-muted-foreground text-lg">Projetado com perfeição para ser intuitivo, rápido e absolutamente lindo.</p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-6xl">
             {/* Bento 1: Large */}
-            <motion.div variants={fadeUp} className="md:col-span-2 glass-panel border border-white/5 rounded-[2rem] p-8 md:p-12 hover:bg-white/[0.02] transition-colors relative overflow-hidden group">
+            <motion.div variants={fadeUp} className="md:col-span-2 glass-panel border border-border/10 rounded-[2rem] p-8 md:p-12 hover:bg-card/30 transition-colors relative overflow-hidden group">
               <div className="absolute -right-20 -top-20 w-64 h-64 bg-primary/10 rounded-full blur-[80px] group-hover:bg-primary/20 transition-colors" />
               <Radar className="h-10 w-10 text-primary mb-6" />
-              <h3 className="text-2xl font-display font-bold text-white mb-3">Previsões Inteligentes</h3>
+              <h3 className="text-2xl font-display font-bold text-foreground mb-3">Previsões Inteligentes</h3>
               <p className="text-muted-foreground text-lg max-w-md">O NexFinance analisa suas despesas recorrentes e calcula como estará sua conta no fim do mês automaticamente. Nunca mais seja pego de surpresa.</p>
             </motion.div>
 
             {/* Bento 2: Square */}
-            <motion.div variants={fadeUp} className="glass-panel border border-white/5 rounded-[2rem] p-8 md:p-10 hover:bg-white/[0.02] transition-colors">
+            <motion.div variants={fadeUp} className="glass-panel border border-border/10 rounded-[2rem] p-8 md:p-10 hover:bg-card/30 transition-colors">
               <Shield className="h-10 w-10 text-blue-400 mb-6" />
-              <h3 className="text-2xl font-display font-bold text-white mb-3">Segurança Total</h3>
+              <h3 className="text-2xl font-display font-bold text-foreground mb-3">Segurança Total</h3>
               <p className="text-muted-foreground">Autenticação militar e criptografia ponta a ponta com Row Level Security (RLS).</p>
             </motion.div>
 
             {/* Bento 3: Square */}
-            <motion.div variants={fadeUp} className="glass-panel border border-white/5 rounded-[2rem] p-8 md:p-10 hover:bg-white/[0.02] transition-colors">
+            <motion.div variants={fadeUp} className="glass-panel border border-border/10 rounded-[2rem] p-8 md:p-10 hover:bg-card/30 transition-colors">
               <TrendingUp className="h-10 w-10 text-success mb-6" />
-              <h3 className="text-2xl font-display font-bold text-white mb-3">Relatórios Vivos</h3>
+              <h3 className="text-2xl font-display font-bold text-foreground mb-3">Relatórios Vivos</h3>
               <p className="text-muted-foreground">Exporte extratos e PDFs lindamente desenhados com apenas um clique.</p>
             </motion.div>
 
             {/* Bento 4: Large */}
-            <motion.div variants={fadeUp} className="md:col-span-2 glass-panel border border-white/5 rounded-[2rem] p-8 md:p-12 hover:bg-white/[0.02] transition-colors relative overflow-hidden group">
+            <motion.div variants={fadeUp} className="md:col-span-2 glass-panel border border-border/10 rounded-[2rem] p-8 md:p-12 hover:bg-card/30 transition-colors relative overflow-hidden group">
               <div className="absolute -left-20 -bottom-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-[80px] group-hover:bg-indigo-500/20 transition-colors" />
               <Sparkles className="h-10 w-10 text-indigo-400 mb-6" />
-              <h3 className="text-2xl font-display font-bold text-white mb-3">Modo Escuro Premium</h3>
+              <h3 className="text-2xl font-display font-bold text-foreground mb-3">Modo Escuro Premium</h3>
               <p className="text-muted-foreground text-lg max-w-md">Feito sob medida para quem trabalha à noite. Contraste perfeito, profundidades blur e tipografia que descansa a visão enquanto impressiona.</p>
             </motion.div>
           </div>

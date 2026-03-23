@@ -9,6 +9,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowRight, Radar, Sparkles } from "lucide-react"
 import { motion } from "framer-motion"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -92,6 +93,9 @@ export default function LoginPage() {
 
       {/* Right Pane - Form */}
       <div className="flex w-full lg:w-1/2 flex-col justify-center items-center p-8 sm:p-12 relative overflow-hidden bg-background">
+        <div className="absolute top-4 right-4 z-20">
+          <ThemeToggle />
+        </div>
         {/* Subtle mobile glow */}
         <div className="absolute top-0 right-0 w-full h-96 bg-primary/5 rounded-full blur-[100px] lg:hidden" />
         

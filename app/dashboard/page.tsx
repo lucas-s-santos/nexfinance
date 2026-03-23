@@ -25,7 +25,8 @@ import { UpcomingBills } from "@/components/dashboard/upcoming-bills"
 import { MonthlyTrend } from "@/components/dashboard/monthly-trend"
 import { BudgetAlerts } from "@/components/dashboard/budget-alerts"
 import { QuickInsights } from "@/components/dashboard/quick-insights"
-import { MONTHS } from "@/lib/format"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { MONTHS, formatCurrency } from "@/lib/format"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { Eye, EyeOff } from "lucide-react"
@@ -81,6 +82,18 @@ export default function DashboardPage() {
     [categories]
   )
 
+  const healthScore = useMemo(() => {
+    const { totalIncome, totalExpenses } = financialSummary
+    if (totalIncome === 0) return 50
+    const ratio = totalExpenses / totalIncome
+    // Se as despesas forem maiores que a receita, a pontuação cai rapidamente
+    if (ratio > 1) return Math.max(0, Math.round(50 - (ratio - 1) * 100))
+    // Se houver sobra, a pontuação é o percentual de sobra (ex: sobra 20% -> 20/100? Não, 80/100 seria melhor)
+    // Se sobra 20%, score 80? Se sobra 50%, score 100?
+    // Vamos usar: 100 - (ratio * 100) -> Se ratio 0.2 (20% gastos), score 80.
+    return Math.min(100, Math.round((1 - ratio) * 100))
+  }, [financialSummary])
+
   const notificationSeeds = useMemo(() => {
     if (!periodId) {
       return { rows: [], deletes: [] as Array<{ type: string; threshold: number }> }
@@ -112,7 +125,9 @@ export default function DashboardPage() {
 
     const goalsDueSoon = goals.filter((goal) => {
       if (!goal.deadline) return false
-      const diff = diffInDays(new Date(goal.deadline))
+      // Usar a mesma lógica de toDate para garantir compatibilidade com Safari
+      const deadlineStr = goal.deadline.includes("T") ? goal.deadline.split("T")[0] : goal.deadline
+      const diff = diffInDays(toDate(deadlineStr))
       const target = Number(goal.target_value)
       const current = Number(goal.current_value)
       return current < target && diff >= 0 && diff <= 30
@@ -187,7 +202,7 @@ export default function DashboardPage() {
       rows.push({
         type: "reserve_update",
         title: "Reserva atualizada",
-        message: `Voce adicionou ${require("@/lib/format").formatCurrency(recentReserveTotal)} em reservas nos ultimos 7 dias.`,
+        message: `Voce adicionou ${formatCurrency(recentReserveTotal)} em reservas nos ultimos 7 dias.`,
         threshold: 7,
       })
     } else {
@@ -254,6 +269,7 @@ export default function DashboardPage() {
     <div className="px-4 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl space-y-10 py-4 lg:py-6">
         <div className="flex items-center justify-end gap-3">
+          <ThemeToggle />
           <Button
             variant="outline"
             size="sm"
