@@ -12,7 +12,6 @@ import {
   AlertTriangle,
   CalendarClock,
   Target,
-  Target,
   Wallet,
   BellRing,
   BellOff,
@@ -44,10 +43,10 @@ export function NotificationsPanel({
   const pathname = usePathname() ?? "/"
   const filter = normalizeFilter(searchParams.get(FILTER_PARAM))
   const searchParamString = searchParams.toString()
-
   const { permission, requestPermission } = usePushNotifications()
-  const filter = normalizeFilter(searchParams.get(FILTER_PARAM))
-  const searchParamString = searchParams.toString()
+  const [dense, setDense] = useState(false)
+  const [filterAnimating, setFilterAnimating] = useState(false)
+  const filterTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const filteredNotifications = useMemo(
     () => (notifications ?? []).filter((n) => n.type !== "budget_alert"),
