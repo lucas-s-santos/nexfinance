@@ -35,8 +35,17 @@ export function parseOfx(content: string): OfxTransaction[] {
     .map((block) => {
       const date = parseOfxDate(extractValue(block, "DTPOSTED"))
       const amount = parseOfxAmount(extractValue(block, "TRNAMT"))
-      const name = extractValue(block, "NAME") || extractValue(block, "MEMO")
-      const memo = extractValue(block, "MEMO")
+      const rawName = extractValue(block, "NAME")
+      const rawMemo = extractValue(block, "MEMO")
+      const fitid = extractValue(block, "FITID")
+
+      const name = rawName || rawMemo
+      const memoParts = []
+      if (rawName && rawMemo && rawName !== rawMemo) memoParts.push(rawMemo)
+      if (fitid) memoParts.push(`FitID: ${fitid}`)
+
+      const memo = memoParts.join(" | ") || undefined
+
       if (!date || Number.isNaN(amount) || !name) return null
       return { date, amount, name, memo }
     })

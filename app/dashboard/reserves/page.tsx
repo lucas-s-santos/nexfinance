@@ -37,6 +37,7 @@ import { CrudDialog } from "@/components/dashboard/crud-dialog"
 import { DeleteDialog } from "@/components/dashboard/delete-dialog"
 import { Plus, Pencil, Trash2, Landmark } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { MobileCards } from "@/components/dashboard/mobile-cards"
 
 interface ReserveForm {
   name: string
@@ -265,60 +266,89 @@ export default function ReservesPage() {
               </Button>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Data</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
-                  <TableHead className="w-20 text-right">Acoes</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(reserves ?? []).map((reserve) => (
-                  <TableRow key={reserve.id}>
-                    <TableCell className="font-medium">
-                      {reserve.name}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">
-                        {RESERVE_TYPES[reserve.type]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{formatDate(reserve.date)}</TableCell>
-                    <TableCell className="text-right font-medium text-primary">
-                      {formatCurrency(Number(reserve.value))}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => openEdit(reserve)}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                          <span className="sr-only">Editar</span>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          onClick={() => {
-                            setDeleteId(reserve.id)
-                            setDeleteOpen(true)
-                          }}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          <span className="sr-only">Excluir</span>
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <>
+              <div className="lg:hidden p-4 bg-muted/20">
+                <MobileCards
+                  items={(reserves ?? []).map((reserve) => ({
+                    id: reserve.id,
+                    name: reserve.name,
+                    value: Number(reserve.value),
+                    date: reserve.date,
+                    badges: [
+                      {
+                        label: RESERVE_TYPES[reserve.type],
+                        variant: "secondary",
+                      },
+                    ],
+                    valueColor: "text-primary",
+                  }))}
+                  onEdit={(id) => {
+                    const reserve = (reserves ?? []).find((r) => r.id === id)
+                    if (reserve) openEdit(reserve)
+                  }}
+                  onDelete={(id) => {
+                    setDeleteId(id)
+                    setDeleteOpen(true)
+                  }}
+                />
+              </div>
+              <div className="hidden lg:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nome</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Data</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                      <TableHead className="w-20 text-right">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(reserves ?? []).map((reserve) => (
+                      <TableRow key={reserve.id}>
+                        <TableCell className="font-medium">
+                          {reserve.name}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">
+                            {RESERVE_TYPES[reserve.type]}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{formatDate(reserve.date)}</TableCell>
+                        <TableCell className="text-right font-medium text-primary">
+                          {formatCurrency(Number(reserve.value))}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => openEdit(reserve)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              <span className="sr-only">Editar</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                              onClick={() => {
+                                setDeleteId(reserve.id)
+                                setDeleteOpen(true)
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              <span className="sr-only">Excluir</span>
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

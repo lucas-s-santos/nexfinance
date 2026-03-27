@@ -23,6 +23,7 @@ import {
   ChevronRight,
   Menu,
   X,
+  Plus,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -197,55 +198,77 @@ export function SidebarNav() {
         </div>
       </aside>
 
-      {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-50 glass-panel-heavy px-2 py-1 lg:hidden flex pb-safe border-t border-border/30">
-        <div className="mx-auto flex w-full max-w-md items-center justify-between">
-          {bottomNavItems.map((item) => {
-            const isActive =
-              item.href === "/dashboard"
-                ? pathname === "/dashboard"
-                : pathname.startsWith(item.href)
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMobileOpen(false)}
-                className={cn(
-                  "flex flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-3 text-[10px] font-medium transition-all active:scale-95",
-                  isActive
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                <div className={cn(
-                  "p-1.5 rounded-full transition-colors mb-0.5",
-                  isActive ? "bg-primary/20 text-primary" : "text-muted-foreground"
-                )}>
-                  <item.icon className="h-5 w-5" />
-                </div>
-                {item.label}
-              </Link>
-            )
-          })}
-          <button
-            type="button"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            className={cn(
-              "flex flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-3 text-[10px] font-medium transition-all active:scale-95",
-              mobileOpen
-                ? "text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-            aria-label="Abrir menu"
-          >
-            <div className={cn(
-              "p-1.5 rounded-full transition-colors mb-0.5",
-              mobileOpen ? "bg-primary/20 text-primary" : "text-muted-foreground"
-            )}>
-              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </div>
-            Menu
-          </button>
+      {/* Mobile bottom nav (Floating Glass Pill) */}
+      <nav className="fixed inset-x-0 bottom-4 z-50 lg:hidden flex justify-center pb-safe pointer-events-none px-4">
+        <div className="flex w-full max-w-[22rem] items-center justify-between rounded-full bg-background/80 backdrop-blur-xl border border-border pb-1 pt-1 px-2 pointer-events-auto ring-1 ring-white/5 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.3)]">
+          
+          {/* First 2 items */}
+          <div className="flex flex-1 justify-around">
+            {bottomNavItems.slice(0, 2).map((item) => {
+              const isActive = item.href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(item.href)
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={cn(
+                    "flex flex-col items-center gap-1 p-2 text-[10px] font-medium transition-all active:scale-95",
+                    isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <item.icon className={cn("h-6 w-6 transition-transform duration-300", isActive && "scale-110")} />
+                  <span className="sr-only">{item.label}</span>
+                </Link>
+              )
+            })}
+          </div>
+
+          {/* FAB - Quick Add */}
+          <div className="relative -top-6 px-2">
+             <button
+               type="button"
+               onClick={() => window.dispatchEvent(new CustomEvent('open-quick-add'))}
+               className="h-14 w-14 rounded-full bg-gradient-to-tr from-primary to-teal-400 text-primary-foreground shadow-[0_8px_30px_rgba(var(--primary),0.4)] flex items-center justify-center hover:scale-105 active:scale-95 transition-all outline-none ring-4 ring-background"
+               aria-label="Nova Transação"
+             >
+               <Plus className="h-7 w-7" />
+             </button>
+          </div>
+
+          {/* Last 2 items + Menu */}
+          <div className="flex flex-1 justify-around items-center">
+            {bottomNavItems.slice(2, 3).map((item) => {
+              const isActive = item.href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(item.href)
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={cn(
+                    "flex flex-col items-center gap-1 p-2 text-[10px] font-medium transition-all active:scale-95",
+                    isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  <item.icon className={cn("h-6 w-6 transition-transform duration-300", isActive && "scale-110")} />
+                  <span className="sr-only">{item.label}</span>
+                </Link>
+              )
+            })}
+            
+            <button
+              type="button"
+              onClick={() => setMobileOpen(!mobileOpen)}
+              className={cn(
+                "flex flex-col items-center gap-1 p-2 text-[10px] font-medium transition-all active:scale-95",
+                mobileOpen ? "text-primary" : "text-muted-foreground hover:text-foreground"
+              )}
+              aria-label="Abrir menu"
+            >
+              {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              <span className="sr-only">Menu</span>
+            </button>
+          </div>
+
         </div>
       </nav>
     </>

@@ -33,6 +33,8 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { toast } from "sonner"
+import { motion, AnimatePresence } from "framer-motion"
+import { UploadCloud, Check, X } from "lucide-react"
 
 type ImportTransaction = {
   id: string
@@ -40,7 +42,7 @@ type ImportTransaction = {
   amount: number
   name: string
   memo?: string
-  source: "ofx" | "csv"
+  source: "ofx" | "csv" | "pdf"
   baseHint?: "income" | "expense" | "investment"
 }
 
@@ -55,7 +57,7 @@ type CsvColumnMap = {
 export default function ImportPage() {
   const [transactions, setTransactions] = useState<ImportTransaction[]>([])
   const [fileName, setFileName] = useState("")
-  const [fileType, setFileType] = useState<"ofx" | "csv" | null>(null)
+  const [fileType, setFileType] = useState<"ofx" | "csv" | "pdf" | null>(null)
   const [csvData, setCsvData] = useState<ReturnType<typeof parseCsv> | null>(null)
   const [csvMap, setCsvMap] = useState<CsvColumnMap>({
     date: "",
@@ -68,6 +70,10 @@ export default function ImportPage() {
   const [ignoredOverrides, setIgnoredOverrides] = useState<Record<string, boolean>>({})
   const [categoryOverrides, setCategoryOverrides] = useState<Record<string, string>>({})
   const [autoCategoriesApplied, setAutoCategoriesApplied] = useState(false)
+  const [duplicateIds, setDuplicateIds] = useState<Set<string>>(new Set())
+  const [step, setStep] = useState<"upload" | "reconciliation" | "review">("upload")
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false)
   const [loading, setLoading] = useState(false)
   const expensePaymentMethod = "debit"
   const [showMapping, setShowMapping] = useState(false)
@@ -149,7 +155,7 @@ export default function ImportPage() {
   }
 
   const detectMapping = (headers: string[]) => {
-    const normalized = headers.map((h) => h.toLowerCase())
+    const normalized = headers.map((h) => h.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
     const guess = (keys: string[]) =>
       headers[normalized.findIndex((h) => keys.some((k) => h.includes(k)))] ?? ""
 
@@ -157,7 +163,7 @@ export default function ImportPage() {
       date: guess(["data", "date", "dt"]) || "",
       amount: guess(["valor", "amount", "value", "vlr"]) || "",
       name: guess(["descricao", "description", "historico", "nome", "name"]) || "",
-      memo: guess(["memo", "obs", "detalhe", "details"]) || "",
+      memo: guess(["memo", "obs", "detalhe", "details", "identificador"]) || "",
       type: guess(["tipo", "type", "debito", "credito"]) || "",
     }
   }
@@ -212,7 +218,20 @@ export default function ImportPage() {
 
         const date = parseCsvDate(rawDate)
         const name = rawName.trim()
-        const memo = rawMemo.trim() || undefined
+        
+        // Preserve unmapped information in memo
+        const mappedIndices = new Set([dateIndex, amountIndex, nameIndex, memoIndex, typeIndex].filter(i => i >= 0))
+        const extras: string[] = []
+        if (memoIndex >= 0 && rawMemo) extras.push(rawMemo.trim())
+        
+        data.headers.forEach((h, i) => {
+          if (!mappedIndices.has(i)) {
+            const val = row[i]?.trim()
+            if (val) extras.push(`${h}: ${val}`)
+          }
+        })
+        const memo = extras.join(" | ") || undefined
+
         const parsedAmount = parseMoneyToNumber(rawAmount)
         const typeHint = inferType(rawType)
         const isNegative = rawAmount.trim().startsWith("-")
@@ -257,6 +276,56 @@ export default function ImportPage() {
       return
     }
 
+    if (extension === "pdf") {
+      try {
+        setLoading(true)
+        const formData = new FormData()
+        formData.append("file", file)
+        
+        const res = await fetch("/api/parse-pdf", {
+          method: "POST",
+          body: formData
+        })
+        
+        if (!res.ok) {
+          const err = await res.json()
+          toast.error(err.error || "Erro ao processar PDF")
+          setLoading(false)
+          return
+        }
+        
+        const data = await res.json()
+        const { parsePdfTransactions } = await import("@/lib/pdf")
+        const parsed = parsePdfTransactions(data.text)
+        
+        if (parsed.length === 0) {
+          toast.warning("Nenhuma transação identificada no PDF. Verifique se o formato é suportado.")
+        }
+        
+        setFileType("pdf")
+        setCsvData(null)
+        setCsvMap({ date: "", amount: "", name: "", memo: "", type: "" })
+        setTransactions(
+          parsed.map((tx, index) => ({
+             id: `pdf-${index}`,
+             date: tx.date,
+             amount: tx.amount,
+             name: tx.name,
+             memo: tx.memo,
+             source: "pdf",
+             baseHint: inferType(`${tx.name} ${tx.memo ?? ""}`) ?? undefined
+          }))
+        )
+        setStep("reconciliation")
+        setCurrentIndex(0)
+      } catch (error) {
+        toast.error("Erro inesperado ao processar PDF")
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
     const parsed = parseOfx(text)
     setFileType("ofx")
     setCsvData(null)
@@ -272,6 +341,8 @@ export default function ImportPage() {
         baseHint: inferType(`${tx.name} ${tx.memo ?? ""}`) ?? undefined,
       }))
     )
+    setStep("reconciliation")
+    setCurrentIndex(0)
   }
 
   const normalizeText = (value: string) =>
@@ -504,6 +575,81 @@ export default function ImportPage() {
     setAutoCategoriesApplied(true)
   }, [autoCategoriesApplied, categories, transactions])
 
+  useEffect(() => {
+    if (transactions.length === 0) {
+      setDuplicateIds(new Set())
+      return
+    }
+
+    const checkDuplicates = async () => {
+      setCheckingDuplicates(true)
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        setCheckingDuplicates(false)
+        return
+      }
+
+      let minDate = transactions[0].date
+      let maxDate = transactions[0].date
+      for (const tx of transactions) {
+        if (tx.date < minDate) minDate = tx.date
+        if (tx.date > maxDate) maxDate = tx.date
+      }
+
+      try {
+        const [incomesRes, expensesRes, investmentsRes] = await Promise.all([
+          supabase.from("incomes").select("date, value").eq("user_id", user.id).gte("date", minDate).lte("date", maxDate),
+          supabase.from("expenses").select("date, value").eq("user_id", user.id).gte("date", minDate).lte("date", maxDate),
+          supabase.from("reserves_investments").select("date, value").eq("user_id", user.id).gte("date", minDate).lte("date", maxDate),
+        ])
+
+        const existingKeys = new Set<string>()
+
+        const processRows = (rows: any[] | null) => {
+          if (!rows) return
+          for (const row of rows) {
+            existingKeys.add(`${row.date}-${Math.abs(row.value)}`)
+          }
+        }
+
+        processRows(incomesRes.data)
+        processRows(expensesRes.data)
+        processRows(investmentsRes.data)
+
+        const newDups = new Set<string>()
+        let hasChanges = false
+        const nextIgnored = { ...ignoredOverrides }
+
+        for (const tx of transactions) {
+          const key = `${tx.date}-${Math.abs(tx.amount)}`
+          if (existingKeys.has(key)) {
+            newDups.add(tx.id)
+            if (!nextIgnored[tx.id]) {
+              nextIgnored[tx.id] = true
+              hasChanges = true
+            }
+          }
+        }
+
+        setDuplicateIds(newDups)
+        if (hasChanges) {
+          setIgnoredOverrides(nextIgnored)
+        }
+      } catch (error) {
+        console.error("Erro ao verificar duplicatas:", error)
+      } finally {
+        setCheckingDuplicates(false)
+      }
+    }
+
+    checkDuplicates()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transactions])
+
   const ensurePeriod = async (userId: string, date: string) => {
     try {
       const [year, month] = date.split("-")
@@ -677,411 +823,248 @@ export default function ImportPage() {
     }
   }
 
+  const activeTx = filteredRows[currentIndex]
+
+  useEffect(() => {
+    if (step !== "reconciliation" || !activeTx) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+
+      if (e.key === "ArrowRight" || e.key === "Enter") {
+        e.preventDefault()
+        setIgnoredOverrides((prev) => ({ ...prev, [activeTx.id]: false }))
+        setCurrentIndex((prev) => prev + 1)
+      } else if (e.key === "ArrowLeft" || e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault()
+        setIgnoredOverrides((prev) => ({ ...prev, [activeTx.id]: true }))
+        setCurrentIndex((prev) => prev + 1)
+      } else if (e.key >= "1" && e.key <= "9") {
+        const num = parseInt(e.key) - 1
+        const cats = activeTx.baseType === "income" ? incomeCategories : expenseCategories
+        if (cats && cats[num]) {
+          e.preventDefault()
+          setIgnoredOverrides((prev) => ({ ...prev, [activeTx.id]: false }))
+          setCategoryOverrides((prev) => ({ ...prev, [activeTx.id]: cats[num].id }))
+          setCurrentIndex((prev) => prev + 1)
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [step, activeTx, incomeCategories, expenseCategories])
+
+  useEffect(() => {
+    if (step === "reconciliation" && filteredRows.length > 0 && currentIndex >= filteredRows.length) {
+      setStep("review")
+    }
+  }, [currentIndex, filteredRows.length, step])
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 max-w-4xl mx-auto w-full pb-20">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Importacao</h1>
+        <h1 className="text-2xl font-bold text-foreground">Importação Inteligente</h1>
         <p className="text-muted-foreground">
-          Importe OFX ou CSV e revise antes de inserir.
+          Importe OFX, PDF ou CSV de forma fluida e focada.
         </p>
       </div>
 
-      <Card>
-        <CardContent className="space-y-5 p-6">
-          <div className="grid gap-2">
-            <Label>Arquivo OFX ou CSV</Label>
-            <input
-              type="file"
-              accept=".ofx,.csv"
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) handleFile(file)
-              }}
-              className="w-full text-sm file:mr-3 file:rounded-md file:border-0 file:bg-muted file:px-3 file:py-2 file:text-xs file:font-semibold"
-            />
-            {fileName && (
-              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <span>{fileName}</span>
-                <Badge variant="outline">{transactions.length} transacao(oes)</Badge>
-                {fileType && <Badge variant="secondary">{fileType.toUpperCase()}</Badge>}
-              </div>
-            )}
-          </div>
-
-          {fileType === "csv" && csvData && csvData.headers.length > 0 && (
-            <Collapsible open={showMapping} onOpenChange={setShowMapping}>
-              <CollapsibleTrigger asChild>
-                <Button variant="outline" size="sm">
-                  {showMapping ? "Ocultar mapeamento CSV" : "Configurar mapeamento CSV"}
-                </Button>
-              </CollapsibleTrigger>
-              <CollapsibleContent className="mt-3 rounded-lg border border-border bg-muted/30 p-4">
-                <p className="text-sm font-semibold text-foreground">Mapeamento de colunas</p>
-                <p className="text-xs text-muted-foreground">
-                  Selecione data, valor e descricao. Os campos opcionais ajudam na classificacao.
+      {step === "upload" && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <Card>
+            <CardContent className="p-8">
+              <div 
+                className="border-2 border-dashed border-muted-foreground/25 rounded-xl p-12 flex flex-col items-center justify-center text-center hover:bg-muted/30 transition-colors cursor-pointer"
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={(e) => { e.preventDefault(); e.stopPropagation(); const f = e.dataTransfer.files?.[0]; if(f) handleFile(f) }}
+                onClick={() => document.getElementById("file-upload")?.click()}
+              >
+                <UploadCloud className="w-12 h-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold">Arraste seu extrato aqui</h3>
+                <p className="text-sm text-muted-foreground mt-1 mb-4">
+                  Suporta .OFX, .PDF e .CSV
                 </p>
-                <div className="mt-4 grid gap-3 md:grid-cols-5">
-                  <div className="grid gap-2">
-                    <Label>Data</Label>
-                    <Select value={csvMap.date || "none"} onValueChange={(v) => setCsvMap({ ...csvMap, date: v === "none" ? "" : v })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Escolher" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Nao usar</SelectItem>
-                        {csvData.headers.map((header) => (
-                          <SelectItem key={`date-${header}`} value={header}>
-                            {header}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Valor</Label>
-                    <Select value={csvMap.amount || "none"} onValueChange={(v) => setCsvMap({ ...csvMap, amount: v === "none" ? "" : v })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Escolher" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Nao usar</SelectItem>
-                        {csvData.headers.map((header) => (
-                          <SelectItem key={`amount-${header}`} value={header}>
-                            {header}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Descricao</Label>
-                    <Select value={csvMap.name || "none"} onValueChange={(v) => setCsvMap({ ...csvMap, name: v === "none" ? "" : v })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Escolher" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Nao usar</SelectItem>
-                        {csvData.headers.map((header) => (
-                          <SelectItem key={`name-${header}`} value={header}>
-                            {header}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Detalhe</Label>
-                    <Select value={csvMap.memo || "none"} onValueChange={(v) => setCsvMap({ ...csvMap, memo: v === "none" ? "" : v })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Opcional" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Nao usar</SelectItem>
-                        {csvData.headers.map((header) => (
-                          <SelectItem key={`memo-${header}`} value={header}>
-                            {header}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>Tipo</Label>
-                    <Select value={csvMap.type || "none"} onValueChange={(v) => setCsvMap({ ...csvMap, type: v === "none" ? "" : v })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Opcional" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Nao usar</SelectItem>
-                        {csvData.headers.map((header) => (
-                          <SelectItem key={`type-${header}`} value={header}>
-                            {header}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                <input
+                  id="file-upload"
+                  type="file"
+                  accept=".ofx,.csv,.pdf"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
+                />
+                <Button variant="secondary" className="pointer-events-none">Selecionar Arquivo</Button>
+              </div>
+
+              {fileType === "csv" && csvData && (
+                <div className="mt-8 animate-in fade-in slide-in-from-bottom-4">
+                  <div className="bg-muted/30 rounded-xl p-6 border border-border">
+                    <h3 className="font-semibold mb-2">Configure as Colunas do CSV</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+                       <div className="grid gap-2"><Label>Data</Label><Select value={csvMap.date||"none"} onValueChange={(v)=>setCsvMap({...csvMap,date:v==="none"?"":v})}><SelectTrigger><SelectValue placeholder="Escolher"/></SelectTrigger><SelectContent><SelectItem value="none">Ignorar</SelectItem>{csvData.headers.map(h=><SelectItem key={h} value={h}>{h}</SelectItem>)}</SelectContent></Select></div>
+                       <div className="grid gap-2"><Label>Valor</Label><Select value={csvMap.amount||"none"} onValueChange={(v)=>setCsvMap({...csvMap,amount:v==="none"?"":v})}><SelectTrigger><SelectValue placeholder="Escolher"/></SelectTrigger><SelectContent><SelectItem value="none">Ignorar</SelectItem>{csvData.headers.map(h=><SelectItem key={h} value={h}>{h}</SelectItem>)}</SelectContent></Select></div>
+                       <div className="grid gap-2"><Label>Descricao</Label><Select value={csvMap.name||"none"} onValueChange={(v)=>setCsvMap({...csvMap,name:v==="none"?"":v})}><SelectTrigger><SelectValue placeholder="Escolher"/></SelectTrigger><SelectContent><SelectItem value="none">Ignorar</SelectItem>{csvData.headers.map(h=><SelectItem key={h} value={h}>{h}</SelectItem>)}</SelectContent></Select></div>
+                    </div>
+                    <Button onClick={() => { setStep("reconciliation"); setCurrentIndex(0) }} className="w-full">
+                       Iniciar Reconciliação
+                    </Button>
                   </div>
                 </div>
-              </CollapsibleContent>
-            </Collapsible>
-          )}
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
-          <div className="rounded-lg border border-border bg-muted/30 px-4 py-3">
-            <p className="text-sm font-medium text-foreground">Importacao simplificada</p>
-            <p className="text-xs text-muted-foreground">
-              Este modulo importa somente receitas e despesas.
-            </p>
+      {step === "reconciliation" && activeTx && (
+        <div className="flex flex-col items-center">
+          <div className="w-full flex items-center justify-between mb-4 text-sm font-medium text-muted-foreground">
+            <span>Analisando {currentIndex + 1} de {filteredRows.length}</span>
+            <Button variant="ghost" size="sm" onClick={() => setStep("review")}>
+              Pular para Resumo
+            </Button>
           </div>
 
-          <Button onClick={handleImport} disabled={loading}>
-            {loading ? "Importando..." : "Importar"}
-          </Button>
-        </CardContent>
-      </Card>
+          <AnimatePresence mode="popLayout">
+            <motion.div
+              key={activeTx.id}
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, x: ignoredOverrides[activeTx.id] ? -100 : 100 }}
+              transition={{ duration: 0.2 }}
+              className="w-full"
+            >
+              <Card className="overflow-hidden border-2 border-primary/10 shadow-lg">
+                <div className={`h-2 w-full ${activeTx.baseType === 'income' ? 'bg-success' : activeTx.baseType === 'investment' ? 'bg-primary' : 'bg-destructive'}`} />
+                <CardContent className="p-8 flex flex-col items-center text-center space-y-6">
+                  
+                  {duplicateIds.has(activeTx.id) && (
+                    <Badge variant="destructive" className="mb-2">⚠️ Possível Duplicata Detectada</Badge>
+                  )}
 
-      <Card>
-        <CardContent className="p-6">
-          {previewRows.length === 0 ? (
-            <div className="text-sm text-muted-foreground">
-              Nenhuma transacao carregada.
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium text-foreground">Preview</p>
-                  <p className="text-xs text-muted-foreground">
-                    Mostrando {previewRows.length} de {filteredRows.length}
-                    {filteredRows.length !== transactionRows.length && (
-                      <span> (total {transactionRows.length})</span>
+                  <div className="space-y-1 w-full">
+                    <p className="text-sm font-medium text-muted-foreground">{formatDate(activeTx.tx.date)}</p>
+                    <Input 
+                      className="text-2xl font-bold text-center border-none shadow-none focus-visible:ring-0 focus-visible:outline-none h-auto py-2 px-0 bg-transparent"
+                      value={descriptionOverrides[activeTx.id] ?? activeTx.tx.name}
+                      onChange={(e) => setDescriptionOverrides(prev => ({ ...prev, [activeTx.id]: e.target.value }))}
+                      onBlur={() => {
+                         const current = (descriptionOverrides[activeTx.id] ?? "").trim()
+                         if (!current || current === activeTx.tx.name) {
+                            setDescriptionOverrides(prev => { const n = {...prev}; delete n[activeTx.id]; return n; })
+                         }
+                      }}
+                    />
+                    {activeTx.tx.memo && (
+                      <p className="text-sm text-muted-foreground">{activeTx.tx.memo}</p>
                     )}
-                  </p>
+                  </div>
+
+                  <div className={`text-5xl font-black ${activeTx.baseType === 'income' ? 'text-success' : activeTx.baseType === 'investment' ? 'text-primary' : 'text-destructive'}`}>
+                     {formatCurrency(Math.abs(activeTx.tx.amount))}
+                  </div>
+
+                  <div className="w-full grid grid-cols-2 gap-4 pt-6">
+                    <Button 
+                      variant="outline" 
+                      size="lg" 
+                      className="h-16 text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/20 text-lg"
+                      onClick={() => {
+                        setIgnoredOverrides(prev => ({...prev, [activeTx.id]: true}))
+                        setCurrentIndex(prev => prev + 1)
+                      }}
+                    >
+                      <X className="w-6 h-6 mr-2" /> <span className="hidden sm:inline">Ignorar</span> (←)
+                    </Button>
+                    <Button 
+                      variant="default" 
+                      size="lg" 
+                      className="h-16 text-lg"
+                      onClick={() => {
+                        setIgnoredOverrides(prev => ({...prev, [activeTx.id]: false}))
+                        setCurrentIndex(prev => prev + 1)
+                      }}
+                    >
+                      <Check className="w-6 h-6 mr-2" /> <span className="hidden sm:inline">Aprovar</span> (→)
+                    </Button>
+                  </div>
+
+                  <div className="w-full pt-6 border-t border-border/50">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4 text-left">
+                      Categorias Rápidas (Teclado 1-9)
+                    </p>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {(activeTx.baseType === "income" ? incomeCategories : expenseCategories).slice(0, 9).map((cat, idx) => (
+                        <Button
+                          key={cat.id}
+                          variant={categoryOverrides[activeTx.id] === cat.id ? "default" : "secondary"}
+                          size="sm"
+                          className="rounded-full"
+                          onClick={() => {
+                             setCategoryOverrides(prev => ({...prev, [activeTx.id]: cat.id}))
+                             if (categoryOverrides[activeTx.id] === cat.id) {
+                               setIgnoredOverrides(prev => ({...prev, [activeTx.id]: false}))
+                               setCurrentIndex(prev => prev + 1)
+                             }
+                          }}
+                        >
+                          <span className="opacity-50 mr-2 text-xs">[{idx + 1}]</span>
+                          {cat.name}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                </CardContent>
+              </Card>
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      )}
+
+      {step === "review" && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+           <Card>
+             <CardContent className="p-8 flex flex-col items-center text-center">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                  <Check className="w-8 h-8 text-primary" />
                 </div>
-                {filteredRows.length > 8 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowAll((prev) => !prev)}
-                  >
-                    {showAll ? "Mostrar menos" : "Ver todas"}
+                <h2 className="text-2xl font-bold mb-2">Revisão Concluída</h2>
+                <p className="text-muted-foreground mb-8">
+                  Você analisou {filteredRows.length} transações.
+                </p>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full mb-8">
+                  <div className="bg-muted/50 p-4 rounded-xl">
+                    <p className="text-sm text-muted-foreground mb-1">Aprovadas</p>
+                    <p className="text-2xl font-bold">{filteredRows.filter(r => !r.skipped).length}</p>
+                  </div>
+                  <div className="bg-success/10 p-4 rounded-xl">
+                    <p className="text-sm text-success mb-1">Receitas</p>
+                    <p className="text-xl font-bold text-success">{formatCurrency(previewSummary.income)}</p>
+                  </div>
+                  <div className="bg-destructive/10 p-4 rounded-xl">
+                    <p className="text-sm text-destructive mb-1">Despesas</p>
+                    <p className="text-xl font-bold text-destructive">{formatCurrency(previewSummary.expense)}</p>
+                  </div>
+                  <div className="bg-primary/10 p-4 rounded-xl">
+                    <p className="text-sm text-primary mb-1">Investimentos</p>
+                    <p className="text-xl font-bold text-primary">{formatCurrency(previewSummary.investment)}</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 w-full max-w-sm">
+                  <Button variant="outline" className="flex-1" onClick={() => { setStep("reconciliation"); setCurrentIndex(0); }}>
+                    Revisar Novamente
                   </Button>
-                )}
-              </div>
-
-              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                <span>Receitas: {formatCurrency(previewSummary.income)}</span>
-                <span>*</span>
-                <span>Despesas: {formatCurrency(previewSummary.expense)}</span>
-                <span>*</span>
-                <span>Investimentos: {formatCurrency(previewSummary.investment)}</span>
-                <span>*</span>
-                <span>Ignoradas: {previewSummary.skipped}</span>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-3">
-                <div className="grid gap-2">
-                  <Label>Buscar</Label>
-                  <Input
-                    value={previewSearch}
-                    onChange={(e) => setPreviewSearch(e.target.value)}
-                    placeholder="Descricao ou detalhe"
-                    className="h-9"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Tipo</Label>
-                  <Select value={previewType} onValueChange={setPreviewType}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="income">Receitas</SelectItem>
-                      <SelectItem value="expense">Despesas</SelectItem>
-                      <SelectItem value="investment">Investimentos</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label>Status</Label>
-                  <Select value={previewStatus} onValueChange={setPreviewStatus}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="active">Ativas</SelectItem>
-                      <SelectItem value="ignored">Ignoradas</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9"
-                    onClick={() => {
-                      setPreviewSearch("")
-                      setPreviewType("all")
-                      setPreviewStatus("all")
-                      setPreviewDateFrom("")
-                      setPreviewDateTo("")
-                      setPreviewMinValue("")
-                      setPreviewMaxValue("")
-                    }}
-                    disabled={!hasActiveFilters}
-                  >
-                    Limpar filtros
+                  <Button className="flex-1" size="lg" onClick={handleImport} disabled={loading || checkingDuplicates}>
+                    {loading ? "Salvando..." : "Salvar no Banco"}
                   </Button>
                 </div>
-              </div>
+             </CardContent>
+           </Card>
+        </motion.div>
+      )}
 
-              <div className="grid gap-3 md:grid-cols-4">
-                <div className="grid gap-2">
-                  <Label>Data inicial</Label>
-                  <Input
-                    type="date"
-                    value={previewDateFrom}
-                    onChange={(e) => setPreviewDateFrom(e.target.value)}
-                    className="h-9"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Data final</Label>
-                  <Input
-                    type="date"
-                    value={previewDateTo}
-                    onChange={(e) => setPreviewDateTo(e.target.value)}
-                    className="h-9"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Valor minimo</Label>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
-                    value={previewMinValue}
-                    onChange={(e) => setPreviewMinValue(e.target.value)}
-                    placeholder="0,00"
-                    className="h-9"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label>Valor maximo</Label>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.01"
-                    value={previewMaxValue}
-                    onChange={(e) => setPreviewMaxValue(e.target.value)}
-                    placeholder="0,00"
-                    className="h-9"
-                  />
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Data</TableHead>
-                      <TableHead>Descricao</TableHead>
-                      <TableHead>Categoria</TableHead>
-                      <TableHead>Valor</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Acoes</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {previewRows.map((row) => {
-                      const { tx } = row
-                      const isIncomeType = row.baseType === "income"
-                      const isExpenseType = row.baseType === "expense"
-                      const isInvestmentType = row.baseType === "investment"
-                      return (
-                        <TableRow key={row.id} className={row.skipped ? "opacity-60" : undefined}>
-                          <TableCell className="whitespace-nowrap">
-                            {formatDate(tx.date)}
-                          </TableCell>
-                          <TableCell>
-                            <div className="space-y-1">
-                              <Input
-                                value={descriptionOverrides[row.id] ?? tx.name}
-                                onChange={(e) =>
-                                  setDescriptionOverrides((prev) => ({
-                                    ...prev,
-                                    [row.id]: e.target.value,
-                                  }))
-                                }
-                                onBlur={() => {
-                                  setDescriptionOverrides((prev) => {
-                                    const next = { ...prev }
-                                    const current = (next[row.id] ?? "").trim()
-                                    if (!current || current === tx.name) {
-                                      delete next[row.id]
-                                    } else {
-                                      next[row.id] = current
-                                    }
-                                    return next
-                                  })
-                                }}
-                                placeholder="Descricao da transacao"
-                                className="h-9"
-                              />
-                              {tx.memo && (
-                                <p className="text-xs text-muted-foreground/80">{tx.memo}</p>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {isInvestmentType ? (
-                              <Badge variant="outline">Investimento</Badge>
-                            ) : (
-                              <Select
-                                value={categoryOverrides[row.id] ?? "none"}
-                                onValueChange={(value) => {
-                                  setCategoryOverrides((prev) => {
-                                    const next = { ...prev }
-                                    if (value === "none") delete next[row.id]
-                                    else next[row.id] = value
-                                    return next
-                                  })
-                                }}
-                              >
-                                <SelectTrigger className="h-9">
-                                  <SelectValue placeholder="Categoria" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="none">Sem categoria</SelectItem>
-                                  {(row.baseType === "income"
-                                    ? incomeCategories
-                                    : expenseCategories
-                                  ).map((cat) => (
-                                    <SelectItem key={cat.id} value={cat.id}>
-                                      {cat.name}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            )}
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap">
-                            <span
-                              className={
-                                isIncomeType
-                                  ? "text-success"
-                                  : isExpenseType
-                                    ? "text-destructive"
-                                    : "text-primary"
-                              }
-                            >
-                              {formatCurrency(Math.abs(tx.amount))}
-                            </span>
-                          </TableCell>
-                          <TableCell>{getTypeLabel(row.baseType, tx.amount)}</TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap items-center gap-2">
-                              {row.skipped && <Badge variant="outline">Ignorada</Badge>}
-                              <Button
-                                variant={row.skipped ? "outline" : "ghost"}
-                                size="sm"
-                                onClick={() => toggleIgnored(row.id)}
-                              >
-                                {row.skipped ? "Reativar" : "Ignorar"}
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   )
 }

@@ -83,6 +83,16 @@ export function QuickAdd() {
     }),
   ])
 
+  // Global Event Listener for FAB
+  useEffect(() => {
+    const handleOpen = () => {
+      setType("expense")
+      setOpen(true)
+    }
+    window.addEventListener("open-quick-add", handleOpen)
+    return () => window.removeEventListener("open-quick-add", handleOpen)
+  }, [])
+
   // Sync pending transactions when back online
   useEffect(() => {
     if (isOnline && pendingCache.cached && pendingCache.cached.length > 0) {
@@ -355,15 +365,6 @@ export function QuickAdd() {
 
   return (
     <>
-      <Button
-        onClick={() => setOpen(true)}
-        className="fixed bottom-[5.5rem] right-5 z-50 h-14 w-14 rounded-full shadow-[0_8px_30px_var(--tw-shadow-color)] shadow-primary/30 bg-gradient-to-tr from-primary to-teal-400 hover:scale-105 active:scale-95 transition-all text-primary-foreground lg:hidden flex items-center justify-center p-0"
-        aria-label="Adicionar rápido"
-        title="Ctrl+D (Despesa) ou Ctrl+R (Receita)"
-      >
-        <Plus className="h-6 w-6" />
-      </Button>
-
       {isMobile ? (
         <Drawer open={open} onOpenChange={setOpen}>
           <DrawerContent>

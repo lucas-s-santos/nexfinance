@@ -17,9 +17,9 @@ export default function DashboardLayout({
         <SidebarNav />
         <OnboardingModal />
         <QuickAdd />
-        <main className="flex-1 lg:pl-64 transition-all duration-300">
-          <div className="mx-auto max-w-7xl px-4 py-8 pb-32 pt-6 lg:px-8 lg:pb-12 h-full flex flex-col">
-            <div className="glass-panel flex-1 rounded-[2rem] p-5 sm:p-6 lg:p-8 animate-in fade-in duration-700 slide-in-from-bottom-6 min-h-[80vh]">
+        <main className="flex-1 lg:pl-64 transition-all duration-300 pb-24 lg:pb-0">
+          <div className="mx-auto max-w-7xl px-0 lg:px-8 py-0 lg:py-8 h-full flex flex-col min-h-[100dvh] lg:min-h-[calc(100vh-4rem)]">
+            <div className="glass-panel flex-1 rounded-none lg:rounded-[2rem] p-4 pt-6 sm:p-6 lg:p-8 border-x-0 border-y-0 lg:border">
               {children}
             </div>
           </div>

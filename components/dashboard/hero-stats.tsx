@@ -84,35 +84,31 @@ export function HeroStats({
         <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-blue-500/20 to-teal-400/20 rounded-[2rem] blur-2xl opacity-50 dark:opacity-40" />
         <Card className="relative glass-panel border border-border/50 bg-gradient-to-br from-background/90 via-background/60 to-muted/40 overflow-hidden shadow-xl rounded-[2rem]">
           <CardContent className="p-6 sm:p-8">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center lg:items-start">
               {/* Saldo Principal */}
-              <div className="space-y-5 lg:pr-6 lg:border-r border-border/50">
-                <div className="flex items-center gap-2">
-                  <div className={cn("p-2 rounded-xl", isPositive ? "bg-success/10" : "bg-destructive/10")}>
-                    <Wallet className={cn("h-5 w-5", isPositive ? "text-success" : "text-destructive")} />
-                  </div>
-                  <p className="text-sm font-medium text-muted-foreground">Saldo Restante</p>
-                </div>
-                <div>
+              <div className="flex flex-col items-center lg:items-start space-y-3 lg:pr-6 lg:border-r border-border/50 pb-4 lg:pb-0">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Saldo Atual</p>
+                <div className="relative">
+                  <div className={cn("absolute inset-0 blur-2xl rounded-full scale-150 opacity-50", isPositive ? "bg-success/20" : "bg-destructive/20")} />
                   <p className={cn(
-                    "text-4xl sm:text-5xl font-bold tracking-tight",
+                    "relative text-5xl sm:text-6xl font-black tracking-tighter drop-shadow-sm",
                     isPositive ? "text-success" : "text-destructive"
                   )}>
                     {renderValue(displayBalance)}
                   </p>
-                  {reservedTotal > 0 && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Inclui {renderValue(reservedTotal)} bloqueados.
-                    </p>
-                  )}
                 </div>
+                {reservedTotal > 0 && (
+                  <p className="text-xs text-muted-foreground mt-2 text-center lg:text-left">
+                    Inclui <span className="font-semibold">{renderValue(reservedTotal)}</span> em cofres.
+                  </p>
+                )}
                 
-                <div className="space-y-2 pt-2">
-                  <div className="flex justify-between text-xs font-medium text-muted-foreground">
+                <div className="w-full max-w-sm space-y-2 pt-4">
+                  <div className="flex justify-between text-[10px] sm:text-xs font-bold uppercase tracking-wider text-muted-foreground">
                     <span>Comprometimento</span>
                     <span className={expenseColor}>{expensePercentage.toFixed(1)}% utilizado</span>
                   </div>
-                  <div className="w-full bg-secondary rounded-full h-2.5 overflow-hidden">
+                  <div className="w-full bg-secondary rounded-full h-3 overflow-hidden shadow-inner">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${Math.min(expensePercentage, 100)}%` }}
@@ -127,23 +123,23 @@ export function HeroStats({
               </div>
 
               {/* Entradas x Saídas */}
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                  <div className="space-y-2 p-4 rounded-2xl bg-success/5 border border-success/10 hover:bg-success/10 transition-colors">
-                    <div className="flex items-center gap-2">
+              <div className="space-y-4 w-full">
+                <div className="flex w-full gap-3 sm:gap-4">
+                  <div className="flex-1 flex flex-col items-center lg:items-start justify-center space-y-1 p-4 sm:p-5 rounded-[2rem] bg-success/5 border border-success/10 hover:bg-success/10 transition-colors shadow-sm">
+                    <div className="flex items-center gap-1.5 mb-1">
                       <TrendingUp className="h-4 w-4 text-success" />
-                      <p className="text-xs font-medium text-muted-foreground">Receitas</p>
+                      <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Receitas</p>
                     </div>
-                    <p className="text-lg sm:text-xl font-bold text-success">
+                    <p className="text-xl sm:text-2xl font-bold text-success tracking-tight">
                       {renderValue(totalIncome)}
                     </p>
                   </div>
-                  <div className="space-y-2 p-4 rounded-2xl bg-destructive/5 border border-destructive/10 hover:bg-destructive/10 transition-colors">
-                    <div className="flex items-center gap-2">
+                  <div className="flex-1 flex flex-col items-center lg:items-start justify-center space-y-1 p-4 sm:p-5 rounded-[2rem] bg-destructive/5 border border-destructive/10 hover:bg-destructive/10 transition-colors shadow-sm">
+                    <div className="flex items-center gap-1.5 mb-1">
                       <TrendingDown className="h-4 w-4 text-destructive" />
-                      <p className="text-xs font-medium text-muted-foreground">Despesas</p>
+                      <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Despesas</p>
                     </div>
-                    <p className="text-lg sm:text-xl font-bold text-destructive">
+                    <p className="text-xl sm:text-2xl font-bold text-destructive tracking-tight">
                       {renderValue(totalExpenses)}
                     </p>
                   </div>
