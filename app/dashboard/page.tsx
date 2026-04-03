@@ -25,6 +25,7 @@ import { UpcomingBills } from "@/components/dashboard/upcoming-bills"
 import { MonthlyTrend } from "@/components/dashboard/monthly-trend"
 import { BudgetAlerts } from "@/components/dashboard/budget-alerts"
 import { QuickInsights } from "@/components/dashboard/quick-insights"
+import { DashboardReminders } from "@/components/dashboard/dashboard-reminders"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { MONTHS, formatCurrency } from "@/lib/format"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -328,9 +329,10 @@ export default function DashboardPage() {
           </section>
 
           <section className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               <GoalsCard goals={goals ?? []} showValues={showValues} />
               <UpcomingBills bills={bills ?? []} showValues={showValues} />
+              <DashboardReminders />
             </div>
           </section>
 

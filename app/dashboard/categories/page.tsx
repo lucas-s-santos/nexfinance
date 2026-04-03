@@ -27,7 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 interface CategoryForm {
   name: string
-  type: "income" | "expense"
+  type: "income" | "expense" | "reminder"
 }
 
 const emptyForm: CategoryForm = {
@@ -207,7 +207,7 @@ export default function CategoriesPage() {
                       {category.name}
                     </p>
                     <Badge variant="secondary" className="mt-1">
-                      {category.type === "income" ? "Receita" : "Despesa"}
+                      {category.type === "income" ? "Receita" : category.type === "expense" ? "Despesa" : "Lembrete"}
                     </Badge>
                   </div>
                   <div className="flex gap-1">
@@ -262,7 +262,7 @@ export default function CategoriesPage() {
           <Select
             value={form.type}
             onValueChange={(value) =>
-              setForm({ ...form, type: value as "income" | "expense" })
+              setForm({ ...form, type: value as "income" | "expense" | "reminder" })
             }
           >
             <SelectTrigger>
@@ -271,6 +271,7 @@ export default function CategoriesPage() {
             <SelectContent>
               <SelectItem value="income">Receita</SelectItem>
               <SelectItem value="expense">Despesa</SelectItem>
+              <SelectItem value="reminder">Lembrete</SelectItem>
             </SelectContent>
           </Select>
         </div>

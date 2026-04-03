@@ -24,6 +24,7 @@ import {
   Menu,
   X,
   Plus,
+  CalendarDays,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -43,6 +44,7 @@ const navItems = [
   { href: "/dashboard/bills", label: "Contas a Pagar", icon: Receipt },
   { href: "/dashboard/reserves", label: "Reservas", icon: Landmark },
   { href: "/dashboard/goals", label: "Metas", icon: Target },
+  { href: "/dashboard/calendar", label: "Calendário", icon: CalendarDays },
   { href: "/dashboard/import", label: "Importacao", icon: FileUp },
   { href: "/dashboard/reports", label: "Relatorios", icon: FileText },
   { href: "/dashboard/audit", label: "Auditoria", icon: History },
