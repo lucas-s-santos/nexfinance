@@ -55,9 +55,10 @@ interface IncomeForm {
   date: string
   category_id: string
   receipt_url: string | null
+  type: string
 }
 
-const emptyForm: IncomeForm = { name: "", value: "", date: "", category_id: "", receipt_url: null }
+const emptyForm: IncomeForm = { name: "", value: "", date: "", category_id: "", receipt_url: null, type: "income" }
 
 export default function IncomesPage() {
   const { month, year, periodId, isLoading: periodLoading } = usePeriod()
@@ -109,6 +110,7 @@ export default function IncomesPage() {
       date: income.date,
       category_id: income.category_id ?? "",
       receipt_url: income.receipt_url ?? null,
+      type: "income"
     })
     setEditId(income.id)
     setDialogOpen(true)
@@ -149,25 +151,59 @@ export default function IncomesPage() {
       return
     }
 
-    const payload = {
+    const insertPayload = {
       user_id: user.id,
       period_id: periodId,
       name: form.name,
       value: parsedValue,
       date: form.date,
       category_id: form.category_id || null,
-      receipt_url: form.receipt_url || null,
     }
 
-    if (editId) {
+    const updatePayload = {
+      name: form.name,
+      value: parsedValue,
+      date: form.date,
+      category_id: form.category_id || null,
+    }
+
+    if (editId && form.type !== "income") {
+      const newTable = form.type === "expense" ? "expenses" : "reserves_investments"
+      await supabase.from("incomes").delete().eq("id", editId)
+
+      const transferPayload: any = {
+        user_id: user.id,
+        name: form.name,
+        value: parsedValue,
+        date: form.date,
+      }
+      
+      if (form.type === "expense") {
+        transferPayload.period_id = periodId
+        transferPayload.category_id = form.category_id || null
+        transferPayload.payment_method = "debit"
+        transferPayload.is_essential = false
+      } else if (form.type === "investment") {
+        transferPayload.type = "investment"
+      }
+      
+      const { error } = await supabase.from(newTable).insert(transferPayload)
+      if (error) toast.error("Erro ao alterar tipo de transação")
+      else toast.success(`Transformado em ${form.type === 'expense' ? 'despesa' : 'investimento'}`)
+
+    } else if (editId) {
       const { error } = await supabase
         .from("incomes")
-        .update(payload)
+        .update(updatePayload)
         .eq("id", editId)
-      if (error) toast.error("Erro ao atualizar receita")
-      else toast.success("Receita atualizada com sucesso")
+      if (error) {
+        console.error("Supabase Error Details:", error, updatePayload)
+        toast.error(`Erro ao atualizar: ${error.message}`)
+      } else {
+        toast.success("Receita atualizada com sucesso")
+      }
     } else {
-      const { error } = await supabase.from("incomes").insert(payload)
+      const { error } = await supabase.from("incomes").insert(insertPayload)
       if (error) toast.error("Erro ao registrar receita")
       else toast.success("Receita registrada com sucesso")
     }
@@ -372,6 +408,24 @@ export default function IncomesPage() {
         isLoading={saving}
       >
         <div className="grid gap-4">
+          {editId && (
+            <div className="grid gap-2">
+              <Label>Alterar Destino (Tipo de Transação)</Label>
+              <Select
+                value={form.type}
+                onValueChange={(val: any) => setForm({ ...form, type: val })}
+              >
+                <SelectTrigger className="h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="income">Receita (Manter)</SelectItem>
+                  <SelectItem value="expense">Despesa (Saída)</SelectItem>
+                  <SelectItem value="investment">Investimento (Reserva)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid gap-2">
             <Label htmlFor="name">De onde veio essa receita?</Label>
             <Input

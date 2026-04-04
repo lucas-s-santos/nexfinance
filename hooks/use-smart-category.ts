@@ -22,43 +22,28 @@ export function useSmartCategory(
   currentCategoryId: string,
   setCategoryId: (id: string) => void
 ) {
-  const [userOverrode, setUserOverrode] = useState(false)
-
-  // Track if user manually changed the category so we don't overwrite it
   useEffect(() => {
-    if (currentCategoryId && currentCategoryId !== "") {
-      setUserOverrode(true)
-    }
-  }, [currentCategoryId])
+    // Se o usuário ou o sistema já selecionaram uma categoria, não fazemos nada.
+    // Assim, evitamos sobrescrever escolhas manuais ou causar loops de re-renderização.
+    if (currentCategoryId && currentCategoryId !== "") return
 
-  useEffect(() => {
-    // If the input is empty, reset the override flag so it can work again
-    if (!name || name.trim() === "") {
-      setUserOverrode(false)
-      return
-    }
-
-    // Do nothing if the user already selected a category manually for this item
-    if (userOverrode) return
+    if (!name || name.trim() === "") return
 
     const normalizedName = name.toLowerCase().trim()
     
-    // Find matching category in the dictionary
     for (const [categoryName, keywords] of Object.entries(KEYWORD_DICTIONARY)) {
       const match = keywords.some(keyword => normalizedName.includes(keyword))
       
       if (match) {
-        // Find the actual DB category ID that matches this name (case insensitive)
         const dbCategory = categories.find(
           c => c.name.toLowerCase() === categoryName.toLowerCase()
         )
         
         if (dbCategory) {
           setCategoryId(dbCategory.id)
-          // Note: we don't set userOverrode to true here because THIS was an auto-action, not user action.
         }
         break
       }
     }
-  }, [name, categories, userOverrode, setCategoryId])
+  }, [name, categories]) // O effect só processa a lógica inteligente se o nome mudar ou categorias carregarem
 }

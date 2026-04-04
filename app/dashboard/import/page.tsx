@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/table"
 import { toast } from "sonner"
 import { motion, AnimatePresence } from "framer-motion"
-import { UploadCloud, Check, X } from "lucide-react"
+import { UploadCloud, Check, X, LayoutList, LayoutPanelLeft } from "lucide-react"
 
 type ImportTransaction = {
   id: string
@@ -85,6 +85,7 @@ export default function ImportPage() {
   const [previewDateTo, setPreviewDateTo] = useState("")
   const [previewMinValue, setPreviewMinValue] = useState("")
   const [previewMaxValue, setPreviewMaxValue] = useState("")
+  const [viewMode, setViewMode] = useState<"focus" | "table">("focus")
 
   const { data: categories } = useCategories()
   const incomeCategories = (categories ?? []).filter((cat) => cat.type === "income")
@@ -397,10 +398,27 @@ export default function ImportPage() {
     "fiis",
     "fundo imobiliario",
     "fundoimobiliario",
+    "caixinha",
+    "caixinhas",
+    "rdb",
+    "resgate",
+    "aplicacao",
+    "aplicação",
+    "nu invest",
+    "nuinvest",
+    "rendimento",
   ]
 
-  const suggestCategoryId = (tx: ImportTransaction, baseType: "income" | "expense") => {
+  const suggestCategoryId = (tx: ImportTransaction, baseType: string) => {
     const normalized = normalizeDescription(tx)
+    const cleanRawName = tx.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
+
+    try {
+      if (typeof window !== "undefined") {
+        const memory = JSON.parse(localStorage.getItem("nexfinance_category_memory") || "{}")
+        if (memory[cleanRawName]) return memory[cleanRawName]
+      }
+    } catch(e) {}
 
     for (const rule of categoryRules) {
       if (rule.baseType !== baseType) continue
@@ -429,6 +447,10 @@ export default function ImportPage() {
     if (hint === "income") return "income"
     if (hint === "expense") return "expense"
     return tx.amount >= 0 ? "income" : "expense"
+  }
+
+  const isInstallment = (name: string) => {
+    return /\b(0?[1-9]|[1-9][0-9])\/(0?[1-9]|[1-9][0-9])\b/.test(name) || /parc/i.test(name) || /parcela/i.test(name)
   }
 
   const isRowSkipped = (tx: ImportTransaction) =>
@@ -602,17 +624,22 @@ export default function ImportPage() {
 
       try {
         const [incomesRes, expensesRes, investmentsRes] = await Promise.all([
-          supabase.from("incomes").select("date, value").eq("user_id", user.id).gte("date", minDate).lte("date", maxDate),
-          supabase.from("expenses").select("date, value").eq("user_id", user.id).gte("date", minDate).lte("date", maxDate),
-          supabase.from("reserves_investments").select("date, value").eq("user_id", user.id).gte("date", minDate).lte("date", maxDate),
+          supabase.from("incomes").select("date, value, name").eq("user_id", user.id).gte("date", minDate).lte("date", maxDate),
+          supabase.from("expenses").select("date, value, name").eq("user_id", user.id).gte("date", minDate).lte("date", maxDate),
+          supabase.from("reserves_investments").select("date, value, name").eq("user_id", user.id).gte("date", minDate).lte("date", maxDate),
         ])
 
-        const existingKeys = new Set<string>()
+        const getCleanName = (n: string) => 
+          n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "")
+
+        const existingKeysStrict = new Set<string>()
 
         const processRows = (rows: any[] | null) => {
           if (!rows) return
           for (const row of rows) {
-            existingKeys.add(`${row.date}-${Math.abs(row.value)}`)
+            const val = Math.abs(row.value)
+            const strictKey = `${row.date}-${val}-${getCleanName(row.name).substring(0, 5)}`
+            existingKeysStrict.add(strictKey)
           }
         }
 
@@ -621,24 +648,20 @@ export default function ImportPage() {
         processRows(investmentsRes.data)
 
         const newDups = new Set<string>()
-        let hasChanges = false
-        const nextIgnored = { ...ignoredOverrides }
 
         for (const tx of transactions) {
-          const key = `${tx.date}-${Math.abs(tx.amount)}`
-          if (existingKeys.has(key)) {
+          const val = Math.abs(tx.amount)
+          const strictKey = `${tx.date}-${val}-${getCleanName(tx.name).substring(0, 5)}`
+
+          if (existingKeysStrict.has(strictKey)) {
             newDups.add(tx.id)
-            if (!nextIgnored[tx.id]) {
-              nextIgnored[tx.id] = true
-              hasChanges = true
-            }
+            // Não ignoramos automaticamente (removido nextIgnored),
+            // deixando o controle 100% com o usuário.
           }
         }
 
         setDuplicateIds(newDups)
-        if (hasChanges) {
-          setIgnoredOverrides(nextIgnored)
-        }
+        // Mantemos os overrides como estão, não forçamos ignorar
       } catch (error) {
         console.error("Erro ao verificar duplicatas:", error)
       } finally {
@@ -747,6 +770,15 @@ export default function ImportPage() {
         
         const resolvedName = getTxDescription(tx)
         const categoryId = categoryOverrides[tx.id] || null
+
+        if (categoryId && typeof window !== "undefined") {
+          try {
+            const memory = JSON.parse(localStorage.getItem("nexfinance_category_memory") || "{}")
+            const cleanRawName = tx.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
+            memory[cleanRawName] = categoryId
+            localStorage.setItem("nexfinance_category_memory", JSON.stringify(memory))
+          } catch(e) {}
+        }
 
         const isIncomeType = row.baseType === "income"
         const isInvestmentType = row.baseType === "investment"
@@ -915,17 +947,152 @@ export default function ImportPage() {
         </motion.div>
       )}
 
-      {step === "reconciliation" && activeTx && (
-        <div className="flex flex-col items-center">
-          <div className="w-full flex items-center justify-between mb-4 text-sm font-medium text-muted-foreground">
-            <span>Analisando {currentIndex + 1} de {filteredRows.length}</span>
-            <Button variant="ghost" size="sm" onClick={() => setStep("review")}>
-              Pular para Resumo
+      {step === "reconciliation" && filteredRows.length > 0 && (
+        <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto">
+          <div className="w-full flex items-center justify-between bg-card text-card-foreground border rounded-xl overflow-hidden shadow-sm p-2">
+            <div className="flex items-center gap-2 pl-2">
+              <div className="flex bg-muted p-1 rounded-lg">
+                <button
+                  onClick={() => setViewMode("focus")}
+                  className={`flex items-center justify-center px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === "focus" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  <LayoutPanelLeft className="w-4 h-4 mr-2" />
+                  Foco
+                </button>
+                <button
+                  onClick={() => setViewMode("table")}
+                  className={`flex items-center justify-center px-3 py-1.5 rounded-md text-sm font-medium transition-all ${viewMode === "table" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  <LayoutList className="w-4 h-4 mr-2" />
+                  Tabela
+                </button>
+              </div>
+            </div>
+            
+            <div className="text-sm font-medium text-muted-foreground hidden sm:block">
+              Analisando {viewMode === "focus" ? currentIndex + 1 : filteredRows.length} de {filteredRows.length}
+            </div>
+
+            <Button variant="default" size="sm" onClick={() => setStep("review")}>
+              Concluir Etapa
             </Button>
           </div>
 
-          <AnimatePresence mode="popLayout">
-            <motion.div
+          {viewMode === "table" ? (
+            <Card className="overflow-hidden border-border/50 shadow-sm">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader className="bg-muted/30">
+                    <TableRow>
+                      <TableHead className="w-[100px]">Data</TableHead>
+                      <TableHead className="w-[200px]">Descrição Editável</TableHead>
+                      <TableHead className="text-right">Valor</TableHead>
+                      <TableHead>Categoria Rápida</TableHead>
+                      <TableHead className="w-[140px] text-center">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredRows.map((row) => (
+                      <TableRow key={row.id} className={ignoredOverrides[row.id] ? "opacity-50" : ""}>
+                        <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
+                          {formatDate(row.tx.date)}
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            className="h-8 text-sm focus-visible:ring-1"
+                            value={descriptionOverrides[row.id] ?? row.tx.name}
+                            onChange={(e) => setDescriptionOverrides(prev => ({ ...prev, [row.id]: e.target.value }))}
+                            onBlur={() => {
+                              const current = (descriptionOverrides[row.id] ?? "").trim()
+                              if (!current || current === row.tx.name) {
+                                setDescriptionOverrides(prev => { const n = {...prev}; delete n[row.id]; return n; })
+                              }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell className={`text-right font-bold whitespace-nowrap ${row.baseType === 'income' ? 'text-success' : row.baseType === 'investment' ? 'text-primary' : 'text-destructive'}`}>
+                          {formatCurrency(Math.abs(row.tx.amount))}
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={categoryOverrides[row.id] || "unmapped"}
+                            onValueChange={(val) => {
+                              if (val === "unmapped") {
+                                setCategoryOverrides(prev => { const n = {...prev}; delete n[row.id]; return n; })
+                              } else {
+                                setCategoryOverrides(prev => ({...prev, [row.id]: val}))
+                                setIgnoredOverrides(prev => ({...prev, [row.id]: false}))
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="Selecionar..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="unmapped">Nenhuma</SelectItem>
+                              {(row.baseType === "income" ? incomeCategories : expenseCategories).map(cat => (
+                                <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Button 
+                            variant={ignoredOverrides[row.id] ? "outline" : "default"}
+                            size="sm"
+                            className="h-8 w-full text-xs"
+                            onClick={() => setIgnoredOverrides(prev => ({...prev, [row.id]: !prev[row.id]}))}
+                          >
+                            {ignoredOverrides[row.id] ? "❌ Ignorado" : "✅ Ativo"}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+          ) : activeTx && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+              <div className="hidden md:flex flex-col gap-2 max-h-[600px] overflow-y-auto pr-2 rounded-xl">
+                <div className="sticky top-0 bg-background/95 backdrop-blur z-10 pb-2 mb-2 font-semibold text-sm border-b">
+                  Fila de Importação
+                </div>
+                {filteredRows.map((row, idx) => {
+                  const isPast = idx < currentIndex
+                  const isActive = idx === currentIndex
+                  const isIgnored = ignoredOverrides[row.id]
+                  
+                  return (
+                    <div 
+                      key={row.id} 
+                      className={`flex flex-col p-3 rounded-lg border text-sm transition-all cursor-pointer ${isActive ? 'bg-primary/5 border-primary shadow-sm scale-[1.02]' : isPast ? 'bg-muted/30 border-transparent opacity-60' : 'bg-card border-border/50 hover:bg-muted/50'}`}
+                      onClick={() => setCurrentIndex(idx)}
+                    >
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="font-medium truncate pr-2" title={row.tx.name}>
+                          {descriptionOverrides[row.id] ?? row.tx.name}
+                        </span>
+                        {isPast && (
+                          <Badge variant="outline" className={`text-[10px] px-1 py-0 h-4 ${isIgnored ? 'text-destructive border-destructive/20 bg-destructive/10' : 'text-success border-success/20 bg-success/10'}`}>
+                            {isIgnored ? "Ignorado" : "OK"}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-muted-foreground">{formatDate(row.tx.date)}</span>
+                        <span className={`font-semibold ${row.baseType === 'income' ? 'text-success' : row.baseType === 'investment' ? 'text-primary' : 'text-destructive'}`}>
+                          {formatCurrency(Math.abs(row.tx.amount))}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="md:col-span-2 flex flex-col items-center">
+                <AnimatePresence mode="popLayout">
+                  <motion.div
               key={activeTx.id}
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -939,6 +1106,9 @@ export default function ImportPage() {
                   
                   {duplicateIds.has(activeTx.id) && (
                     <Badge variant="destructive" className="mb-2">⚠️ Possível Duplicata Detectada</Badge>
+                  )}
+                  {isInstallment(activeTx.tx.name) && (
+                    <Badge className="mb-2 bg-yellow-500/20 text-yellow-600 border border-yellow-500/50">💳 Compra Parcelada</Badge>
                   )}
 
                   <div className="space-y-1 w-full">
@@ -1019,7 +1189,10 @@ export default function ImportPage() {
             </motion.div>
           </AnimatePresence>
         </div>
-      )}
+      </div>
+    )}
+  </div>
+)}
 
       {step === "review" && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
