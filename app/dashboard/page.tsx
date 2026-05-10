@@ -30,9 +30,10 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { MONTHS, formatCurrency } from "@/lib/format"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
-import { Eye, EyeOff } from "lucide-react"
+import { Eye, EyeOff, Sparkles } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { mutate } from "swr"
+import { motion } from "framer-motion"
 
 export default function DashboardPage() {
   const { month, year, periodId, isLoading: periodLoading } = usePeriod()
@@ -48,6 +49,8 @@ export default function DashboardPage() {
     year
   )
   const [showValues, setShowValues] = useState(true)
+  const [userName, setUserName] = useState("")
+  const [greeting, setGreeting] = useState("Olá")
   const storageKey = "dashboard_show_values"
 
   const isLoading =
@@ -58,6 +61,33 @@ export default function DashboardPage() {
     if (stored !== null) {
       setShowValues(stored === "true")
     }
+
+    const fetchUser = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("display_name")
+          .eq("id", user.id)
+          .single()
+
+        if (profile?.display_name) {
+          setUserName(profile.display_name)
+        } else if (user.user_metadata?.full_name) {
+          setUserName(user.user_metadata.full_name.split(' ')[0])
+        } else if (user.email) {
+          setUserName(user.email.split('@')[0])
+        }
+      }
+    }
+    fetchUser()
+
+    const hour = new Date().getHours()
+    if (hour < 12) setGreeting("Bom dia")
+    else if (hour < 18) setGreeting("Boa tarde")
+    else setGreeting("Boa noite")
   }, [])
 
   const toggleShowValues = () => {
@@ -267,23 +297,56 @@ export default function DashboardPage() {
 
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-6xl space-y-10 py-4 lg:py-6">
-        <div className="flex items-center justify-end gap-3">
-          <ThemeToggle />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={toggleShowValues}
-            aria-label={showValues ? "Ocultar valores" : "Mostrar valores"}
+    <div className="px-4 sm:px-6 lg:px-8 relative min-h-[calc(100vh-6rem)] overflow-hidden">
+      {/* Dynamic Background Elements */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[100px] -z-10 pointer-events-none" />
+      <div className="absolute bottom-1/4 right-0 w-96 h-96 bg-teal-500/10 rounded-full blur-[100px] -z-10 pointer-events-none" />
+      <div className="absolute top-1/2 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[100px] -z-10 pointer-events-none" />
+
+      <div className="mx-auto max-w-6xl space-y-10 py-6 lg:py-8 relative z-10">
+        
+        {/* Animated Greeting Header */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }} 
+            animate={{ opacity: 1, y: 0 }} 
+            transition={{ duration: 0.5 }}
+            className="space-y-2"
           >
-            {showValues ? (
-              <EyeOff className="mr-2 h-4 w-4" />
-            ) : (
-              <Eye className="mr-2 h-4 w-4" />
-            )}
-            {showValues ? "Ocultar" : "Mostrar"}
-          </Button>
+            <div className="flex items-center gap-2 mb-2">
+               <span className="px-3 py-1 text-[10px] font-black tracking-widest uppercase rounded-full bg-primary/10 text-primary border border-primary/20 backdrop-blur-md inline-flex items-center">
+                 <Sparkles className="w-3 h-3 mr-1.5" /> Dashboard Principal
+               </span>
+            </div>
+            <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-foreground">
+              {greeting}{userName ? `, ` : ''} 
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-blue-500 to-teal-400">
+                {userName}
+              </span> 
+              <motion.span 
+                animate={{ rotate: [0, 15, -5, 15, 0] }} 
+                transition={{ repeat: Infinity, duration: 2.5, repeatDelay: 1 }} 
+                className="inline-block origin-bottom-right ml-2"
+              >
+                👋
+              </motion.span>
+            </h1>
+            <p className="text-muted-foreground font-medium text-base md:text-lg opacity-80">
+              Aqui está o resumo da sua vida financeira em <span className="text-foreground capitalize">{MONTHS[month - 1]} de {year}</span>.
+            </p>
+          </motion.div>
+          
+          <div className="flex items-center gap-3 bg-card/40 backdrop-blur-xl border border-white/10 p-2 rounded-2xl shadow-lg">
+            <ThemeToggle />
+            <Button
+              variant={showValues ? "default" : "secondary"}
+              onClick={toggleShowValues}
+              className="rounded-xl font-bold transition-all shadow-sm"
+            >
+              {showValues ? <EyeOff className="mr-2 h-4 w-4" /> : <Eye className="mr-2 h-4 w-4" />}
+              {showValues ? "Ocultar" : "Mostrar"}
+            </Button>
+          </div>
         </div>
 
       {isLoading ? (

@@ -5,12 +5,18 @@ import { createClient } from "@/lib/supabase/client"
 import { useCategories } from "@/lib/use-financial-data"
 import { toast } from "sonner"
 import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
 import { Reminder } from "@/lib/use-reminders"
+import { CalendarIcon } from "lucide-react"
 
 import { CrudDialog } from "@/components/dashboard/crud-dialog"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
 import {
   Select,
   SelectContent,
@@ -41,6 +47,7 @@ export function AddReminderDialog({
   const [description, setDescription] = useState("")
   const [categoryId, setCategoryId] = useState<string>("none")
   const [saving, setSaving] = useState(false)
+  const [internalDate, setInternalDate] = useState<Date>(new Date())
 
   // Quando abrir com editMode, popula os estados
   useEffect(() => {
@@ -49,19 +56,18 @@ export function AddReminderDialog({
         setTitle(reminderToEdit.title)
         setDescription(reminderToEdit.description || "")
         setCategoryId(reminderToEdit.category_id || "none")
+        setInternalDate(reminderToEdit.date ? new Date(reminderToEdit.date.split("T")[0] + "T00:00:00") : new Date())
       } else {
         setTitle("")
         setDescription("")
         setCategoryId("none")
+        setInternalDate(selectedDate || new Date())
       }
     }
-  }, [open, reminderToEdit])
+  }, [open, reminderToEdit, selectedDate])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // No edit mode, we might not rely on selectedDate if they don't change the date, but currently we just keep the selectedDate passed by the parent. 
-    // In our Calendar, clicking "Edit" will pass the reminder and the date it was already on.
-    if (!selectedDate && !reminderToEdit) return
     if (!title.trim()) {
       toast.error("O título é obrigatório.")
       return
@@ -73,11 +79,7 @@ export function AddReminderDialog({
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("Usuário não encontrado")
 
-      // Use a data selecionada atualmente ou mantém a data do lembrete alvo (caso mude)
-      // Como o design ainda não permite trocar a data dentro do modal, usaremos a selectedDate.
-      const dateTarget = selectedDate 
-        ? format(selectedDate, "yyyy-MM-dd") 
-        : (reminderToEdit?.date ? reminderToEdit.date.split("T")[0] : format(new Date(), "yyyy-MM-dd"))
+      const dateTarget = format(internalDate, "yyyy-MM-dd")
 
       const payload = {
         category_id: categoryId !== "none" ? categoryId : null,
@@ -120,12 +122,37 @@ export function AddReminderDialog({
     <CrudDialog
       open={open}
       onOpenChange={onOpenChange}
-      title={reminderToEdit 
-        ? `Editar Lembrete` 
-        : `Novo Lembrete (${selectedDate ? format(selectedDate, "dd/MM/yyyy") : ""})`}
+      title={reminderToEdit ? `Editar Lembrete` : `Novo Lembrete`}
       onSubmit={handleSubmit}
       isLoading={saving}
     >
+      <div className="grid gap-2 text-left">
+        <Label>Data</Label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant={"outline"}
+              className={cn(
+                "w-full justify-start text-left font-normal border-white/10 bg-background/50 backdrop-blur-sm hover:bg-background/80 hover:text-foreground",
+                !internalDate && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {internalDate ? format(internalDate, "PPP", { locale: ptBR }) : <span>Selecione uma data</span>}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0 border-white/10 bg-background/90 backdrop-blur-2xl shadow-2xl" align="start">
+            <Calendar
+              mode="single"
+              selected={internalDate}
+              onSelect={(day) => day && setInternalDate(day)}
+              initialFocus
+              locale={ptBR}
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
       <div className="grid gap-2 text-left">
         <Label htmlFor="title">Título</Label>
         <Input

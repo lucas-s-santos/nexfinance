@@ -56,24 +56,6 @@ export function HeroStats({
 
   return (
     <div className="space-y-6">
-      {/* Header com período */}
-      <motion.div 
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="flex items-center justify-between mb-4 sm:mb-8"
-      >
-        <div>
-          <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-primary via-blue-500 to-teal-400 bg-clip-text text-transparent">
-            Resumo Geral
-          </h1>
-          <p className="text-muted-foreground flex items-center gap-2 mt-1 text-sm sm:text-base">
-            <Calendar className="h-4 w-4" />
-            {MONTHS[month - 1]} de {year}
-          </p>
-        </div>
-      </motion.div>
-
       {/* Main Hero Card */}
       <motion.div 
         initial={{ opacity: 0, scale: 0.98 }}

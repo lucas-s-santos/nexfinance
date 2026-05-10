@@ -59,13 +59,18 @@ export function QuickActions() {
     >
       {actions.map((action) => (
         <motion.div key={action.label} variants={item}>
-          <Link href={action.href} className="block h-full outline-none">
-            <Card className="glass-panel border-0 h-full cursor-pointer group hover:shadow-lg transition-all hover:-translate-y-1 bg-card/40 hover:bg-card/60">
-              <CardContent className="p-4 sm:p-5 flex flex-col items-center justify-center h-full gap-3">
-                <div className={`p-3 rounded-2xl bg-gradient-to-br ${action.color} group-hover:scale-110 transition-transform duration-300 shadow-sm`}>
-                  <action.icon className={`h-5 w-5 ${action.iconColor}`} />
+          <Link href={action.href} className="block h-full outline-none group relative">
+            {/* Animated hover gradient border */}
+            <div className={`absolute -inset-0.5 bg-gradient-to-br ${action.color} rounded-2xl opacity-0 group-hover:opacity-50 blur transition duration-500`} />
+            
+            <Card className="glass-panel border-white/5 h-full relative cursor-pointer hover:shadow-2xl hover:shadow-primary/5 transition-all duration-300 hover:-translate-y-1 bg-card/40 backdrop-blur-xl rounded-2xl overflow-hidden z-10">
+              <div className={`absolute right-0 top-0 w-24 h-24 bg-gradient-to-bl ${action.color} opacity-20 rounded-bl-[100px] transition-transform duration-500 group-hover:scale-150`} />
+              
+              <CardContent className="p-4 sm:p-5 flex flex-col items-center justify-center h-full gap-3 relative z-20">
+                <div className={`p-3 rounded-2xl bg-gradient-to-br ${action.color} group-hover:scale-110 transition-transform duration-300 shadow-lg ring-1 ring-white/10`}>
+                  <action.icon className={`h-6 w-6 ${action.iconColor} drop-shadow-sm`} />
                 </div>
-                <p className="text-xs sm:text-sm font-medium text-center text-foreground group-hover:text-primary transition-colors">
+                <p className="text-xs sm:text-sm font-bold text-center text-foreground/80 group-hover:text-foreground transition-colors tracking-wide">
                   {action.label}
                 </p>
               </CardContent>
