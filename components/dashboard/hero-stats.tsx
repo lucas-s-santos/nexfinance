@@ -65,15 +65,15 @@ export function HeroStats({
       >
         <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-blue-500/20 to-teal-400/20 rounded-[2rem] blur-2xl opacity-50 dark:opacity-40" />
         <Card className="relative glass-panel border border-border/50 bg-gradient-to-br from-background/90 via-background/60 to-muted/40 overflow-hidden shadow-xl rounded-[2rem]">
-          <CardContent className="p-6 sm:p-8">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center lg:items-start">
+          <CardContent className="p-4 sm:p-6 lg:p-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8 items-center lg:items-start">
               {/* Saldo Principal */}
               <div className="flex flex-col items-center lg:items-start space-y-3 lg:pr-6 lg:border-r border-border/50 pb-4 lg:pb-0">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Saldo Atual</p>
                 <div className="relative">
                   <div className={cn("absolute inset-0 blur-2xl rounded-full scale-150 opacity-50", isPositive ? "bg-success/20" : "bg-destructive/20")} />
                   <p className={cn(
-                    "relative text-5xl sm:text-6xl font-black tracking-tighter drop-shadow-sm",
+                    "relative text-4xl sm:text-5xl lg:text-6xl font-black tracking-tighter drop-shadow-sm",
                     isPositive ? "text-success" : "text-destructive"
                   )}>
                     {renderValue(displayBalance)}
@@ -106,22 +106,22 @@ export function HeroStats({
 
               {/* Entradas x Saídas */}
               <div className="space-y-4 w-full">
-                <div className="flex w-full gap-3 sm:gap-4">
-                  <div className="flex-1 flex flex-col items-center lg:items-start justify-center space-y-1 p-4 sm:p-5 rounded-[2rem] bg-success/5 border border-success/10 hover:bg-success/10 transition-colors shadow-sm">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <TrendingUp className="h-4 w-4 text-success" />
-                      <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Receitas</p>
+                <div className="flex w-full gap-2 sm:gap-4">
+                  <div className="flex-1 flex flex-col items-center lg:items-start justify-center space-y-1 p-3 sm:p-5 rounded-2xl sm:rounded-[2rem] bg-success/5 border border-success/10 hover:bg-success/10 transition-colors shadow-sm">
+                    <div className="flex items-center gap-1 sm:gap-1.5 mb-0.5 sm:mb-1">
+                      <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-success" />
+                      <p className="text-[9px] sm:text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-wider">Receitas</p>
                     </div>
-                    <p className="text-xl sm:text-2xl font-bold text-success tracking-tight">
+                    <p className="text-lg sm:text-xl lg:text-2xl font-bold text-success tracking-tight">
                       {renderValue(totalIncome)}
                     </p>
                   </div>
-                  <div className="flex-1 flex flex-col items-center lg:items-start justify-center space-y-1 p-4 sm:p-5 rounded-[2rem] bg-destructive/5 border border-destructive/10 hover:bg-destructive/10 transition-colors shadow-sm">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <TrendingDown className="h-4 w-4 text-destructive" />
-                      <p className="text-[10px] sm:text-xs font-bold text-muted-foreground uppercase tracking-wider">Despesas</p>
+                  <div className="flex-1 flex flex-col items-center lg:items-start justify-center space-y-1 p-3 sm:p-5 rounded-2xl sm:rounded-[2rem] bg-destructive/5 border border-destructive/10 hover:bg-destructive/10 transition-colors shadow-sm">
+                    <div className="flex items-center gap-1 sm:gap-1.5 mb-0.5 sm:mb-1">
+                      <TrendingDown className="h-3 w-3 sm:h-4 sm:w-4 text-destructive" />
+                      <p className="text-[9px] sm:text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-wider">Despesas</p>
                     </div>
-                    <p className="text-xl sm:text-2xl font-bold text-destructive tracking-tight">
+                    <p className="text-lg sm:text-xl lg:text-2xl font-bold text-destructive tracking-tight">
                       {renderValue(totalExpenses)}
                     </p>
                   </div>
@@ -166,10 +166,10 @@ export function HeroStats({
                   <div>
                     <p className="text-xs font-medium text-muted-foreground mb-1">Saúde Financeira</p>
                     <div className="flex items-center gap-2">
-                       <p className={cn("text-xl sm:text-2xl font-bold", scoreColor)}>
+                       <p className={cn("text-lg sm:text-xl md:text-2xl font-bold", scoreColor)}>
                          {healthScore}/100
                        </p>
-                       <span className="text-xs hidden sm:inline-block font-medium text-muted-foreground">({scoreLabel})</span>
+                       <span className="text-[10px] sm:text-xs hidden sm:inline-block font-medium text-muted-foreground">({scoreLabel})</span>
                     </div>
                   </div>
                   <div className="p-3 bg-primary/10 text-primary rounded-full relative">

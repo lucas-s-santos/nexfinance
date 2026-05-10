@@ -297,16 +297,16 @@ export default function DashboardPage() {
 
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 relative min-h-[calc(100vh-6rem)] overflow-hidden">
+    <div className="relative min-h-[calc(100vh-6rem)] w-full overflow-hidden">
       {/* Dynamic Background Elements */}
       <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-[100px] -z-10 pointer-events-none" />
       <div className="absolute bottom-1/4 right-0 w-96 h-96 bg-teal-500/10 rounded-full blur-[100px] -z-10 pointer-events-none" />
       <div className="absolute top-1/2 left-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[100px] -z-10 pointer-events-none" />
 
-      <div className="mx-auto max-w-6xl space-y-10 py-6 lg:py-8 relative z-10">
+      <div className="mx-auto max-w-6xl space-y-8 sm:space-y-10 py-2 sm:py-6 lg:py-8 relative z-10">
         
         {/* Animated Greeting Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-10">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 sm:gap-6 mb-6 sm:mb-10">
           <motion.div 
             initial={{ opacity: 0, y: -20 }} 
             animate={{ opacity: 1, y: 0 }} 
@@ -318,7 +318,7 @@ export default function DashboardPage() {
                  <Sparkles className="w-3 h-3 mr-1.5" /> Dashboard Principal
                </span>
             </div>
-            <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-foreground">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tighter text-foreground leading-tight">
               {greeting}{userName ? `, ` : ''} 
               <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary via-blue-500 to-teal-400">
                 {userName}
@@ -326,12 +326,12 @@ export default function DashboardPage() {
               <motion.span 
                 animate={{ rotate: [0, 15, -5, 15, 0] }} 
                 transition={{ repeat: Infinity, duration: 2.5, repeatDelay: 1 }} 
-                className="inline-block origin-bottom-right ml-2"
+                className="inline-block origin-bottom-right ml-1 sm:ml-2"
               >
                 👋
               </motion.span>
             </h1>
-            <p className="text-muted-foreground font-medium text-base md:text-lg opacity-80">
+            <p className="text-muted-foreground font-medium text-sm sm:text-base md:text-lg opacity-80 mt-1">
               Aqui está o resumo da sua vida financeira em <span className="text-foreground capitalize">{MONTHS[month - 1]} de {year}</span>.
             </p>
           </motion.div>
