@@ -15,6 +15,9 @@ node_modules/
 # Scripts com dados sensíveis
 scripts/999_clean_user_data.sql
 
+# Senhas e segredos: nunca no repositório (guarde num gerenciador de senhas)
+senhabanco.txt
+
 # Documentação excessiva
 IMPLEMENTATION_SUMMARY.md
 README_SYNC_FINAL.md
