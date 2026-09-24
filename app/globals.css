@@ -2,103 +2,120 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Cores: as mesmas do app (nexfinance-mobile/src/theme/palette.ts), nos nomes do shadcn/ui. */
 @layer base {
+  /* <paleta> gerado por nexfinance-mobile: npm run sincronizar-site — não edite à mão */
   :root {
-    --background: 220 33% 98%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    
-    /* Vibrant Emerald Primary */
-    --primary: 160 84% 39%;
-    --primary-foreground: 0 0% 100%;
-    
-    --secondary: 220 14% 92%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 15% 46%;
-    --accent: 220 14% 92%;
-    --accent-foreground: 222 47% 11%;
-    
-    --destructive: 348 83% 54%;
-    --destructive-foreground: 0 0% 100%;
-    --success: 160 84% 39%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 48 96% 89%;
-    
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 160 84% 39%;
-    
+    --background: 220 37.5% 96.9%; /* #F4F6FA */
+    --foreground: 219.5 61.2% 13.1%; /* #0D1B36 */
+    --card: 0 0% 100%; /* #FFFFFF */
+    --card-foreground: 219.5 61.2% 13.1%; /* #0D1B36 */
+    --popover: 0 0% 100%; /* #FFFFFF */
+    --popover-foreground: 219.5 61.2% 13.1%; /* #0D1B36 */
+    --primary: 222 74.2% 44.1%; /* #1D4FC4 */
+    --primary-foreground: 0 0% 100%; /* #FFFFFF */
+    --primary-soft: 222 74.2% 44.1%; /* #1D4FC4 */
+    --secondary: 213.3 36% 95.1%; /* #EEF2F7 */
+    --secondary-foreground: 219.5 61.2% 13.1%; /* #0D1B36 */
+    --muted: 213.3 36% 95.1%; /* #EEF2F7 */
+    --muted-foreground: 220 17.8% 42.9%; /* #5A6781 */
+    --accent: 213.3 36% 95.1%; /* #EEF2F7 */
+    --accent-foreground: 219.5 61.2% 13.1%; /* #0D1B36 */
+    --destructive: 351.4 66.7% 47.1%; /* #C8283F */
+    --destructive-foreground: 0 0% 100%; /* #FFFFFF */
+    --success: 151.6 84.8% 25.9%; /* #0A7A45 */
+    --success-foreground: 0 0% 100%; /* #FFFFFF */
+    --warning: 26 92.9% 33.1%; /* #A34A06 */
+    --warning-foreground: 0 0% 100%; /* #FFFFFF */
+    --info: 203.5 89.2% 36.5%; /* #0A6FB0 */
+    --surface: 0 0% 100%; /* #FFFFFF */
+    --surface2: 213.3 36% 95.1%; /* #EEF2F7 */
+    --teal: 180 83.5% 33.3%; /* #0E9C9C */
+    --income: 151.6 84.8% 25.9%; /* #0A7A45 */
+    --expense: 351.4 66.7% 47.1%; /* #C8283F */
+    --invest: 254.4 71.3% 57.6%; /* #6B46E0 */
+    --border: 214.3 31.8% 91.4%; /* #E2E8F0 */
+    --input: 214.3 31.8% 91.4%; /* #E2E8F0 */
+    --ring: 222 74.2% 44.1%; /* #1D4FC4 */
+    --chart-1: 222 74.2% 44.1%; /* #1D4FC4 */
+    --chart-2: 17 82.1% 56.3%; /* #EB6834 */
+    --chart-3: 158.5 73.3% 39.6%; /* #1BAF7A */
+    --chart-4: 40.8 100% 46.5%; /* #EDA100 */
+    --chart-5: 337.4 70.3% 69.6%; /* #E87BA4 */
+    --chart-6: 120 100% 25.7%; /* #008300 */
+    --chart-income: 145 100% 20.2%; /* #00672B */
+    --chart-expense: 0.5 79.3% 67.8%; /* #EE6D6C */
+    --chart-trend: 222 74.2% 44.1%; /* #1D4FC4 */
+    --sidebar-background: 0 0% 100%; /* #FFFFFF */
+    --sidebar-foreground: 219.5 61.2% 13.1%; /* #0D1B36 */
+    --sidebar-primary: 222 74.2% 44.1%; /* #1D4FC4 */
+    --sidebar-primary-foreground: 0 0% 100%; /* #FFFFFF */
+    --sidebar-accent: 213.3 36% 95.1%; /* #EEF2F7 */
+    --sidebar-accent-foreground: 219.5 61.2% 13.1%; /* #0D1B36 */
+    --sidebar-border: 214.3 31.8% 91.4%; /* #E2E8F0 */
+    --sidebar-ring: 222 74.2% 44.1%; /* #1D4FC4 */
+    --wordmark-nex: 226.2 54.6% 23.3%; /* #1B2A5C */
+    --wordmark-finance: 197.1 80.6% 42.5%; /* #1592C4 */
+    --shadow-card: 0 1px 2px rgba(13, 27, 54, 0.04), 0 6px 16px rgba(13, 27, 54, 0.05);
+    --shadow-floating: 0 12px 32px rgba(13, 27, 54, 0.14);
     --radius: 1rem;
-    
-    /* Refined vibrant charts */
-    --chart-1: 160 84% 39%; /* Emerald */
-    --chart-2: 220 90% 55%; /* Cerulean */
-    --chart-3: 38 92% 50%;  /* Amber */
-    --chart-4: 280 65% 60%; /* Amethyst */
-    --chart-5: 348 83% 54%; /* Rose */
-    
-    --sidebar-background: 220 33% 98%;
-    --sidebar-foreground: 222 47% 11%;
-    --sidebar-primary: 160 84% 39%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 14% 92%;
-    --sidebar-accent-foreground: 222 47% 11%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 160 84% 39%;
   }
 
   .dark {
-    /* Ultra-premium Deep Slate/Blue background */
-    --background: 224 71% 4%;
-    --foreground: 210 40% 98%;
-    
-    --card: 222 47% 7%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 7%;
-    --popover-foreground: 210 40% 98%;
-    
-    /* Neon Emerald for striking contrast */
-    --primary: 158 85% 55%;
-    --primary-foreground: 224 71% 4%;
-    
-    --secondary: 222 47% 15%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 222 47% 15%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 222 47% 15%;
-    --accent-foreground: 210 40% 98%;
-    
-    --destructive: 350 100% 68%;
-    --destructive-foreground: 210 40% 98%;
-    --success: 158 85% 55%;
-    --success-foreground: 224 71% 4%;
-    --warning: 40 100% 60%;
-    --warning-foreground: 224 71% 4%;
-    
-    --border: 222 47% 15%;
-    --input: 222 47% 15%;
-    --ring: 158 85% 55%;
-
-    --chart-1: 158 85% 55%; /* Neon Emerald */
-    --chart-2: 220 100% 70%; /* Neon Cerulean */
-    --chart-3: 40 100% 60%; /* Neon Amber */
-    --chart-4: 280 80% 70%; /* Neon Amethyst */
-    --chart-5: 350 100% 68%; /* Neon Rose */
-    
-    --sidebar-background: 224 71% 4%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 158 85% 55%;
-    --sidebar-primary-foreground: 224 71% 4%;
-    --sidebar-accent: 222 47% 15%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 222 47% 15%;
-    --sidebar-ring: 158 85% 55%;
+    --background: 222.5 54.5% 8.6%; /* #0A1122 */
+    --foreground: 220 54.5% 95.7%; /* #EEF2FA */
+    --card: 222 46.9% 12.5%; /* #111A2F */
+    --card-foreground: 220 54.5% 95.7%; /* #EEF2FA */
+    --popover: 222 46.9% 12.5%; /* #111A2F */
+    --popover-foreground: 220 54.5% 95.7%; /* #EEF2FA */
+    --primary: 222.7 69.7% 53.3%; /* #3565DB */
+    --primary-foreground: 0 0% 100%; /* #FFFFFF */
+    --primary-soft: 223.1 100% 76.3%; /* #86A8FF */
+    --secondary: 222 45.5% 17.3%; /* #182440 */
+    --secondary-foreground: 220 54.5% 95.7%; /* #EEF2FA */
+    --muted: 222 45.5% 17.3%; /* #182440 */
+    --muted-foreground: 220.5 21.6% 66.5%; /* #97A3BC */
+    --accent: 222 45.5% 17.3%; /* #182440 */
+    --accent-foreground: 220 54.5% 95.7%; /* #EEF2FA */
+    --destructive: 351.9 100% 71%; /* #FF6B7F */
+    --destructive-foreground: 222.5 54.5% 8.6%; /* #0A1122 */
+    --success: 151 65.1% 53.9%; /* #3DD68C */
+    --success-foreground: 222.5 54.5% 8.6%; /* #0A1122 */
+    --warning: 38.3 89.8% 61.4%; /* #F5B544 */
+    --warning-foreground: 222.5 54.5% 8.6%; /* #0A1122 */
+    --info: 198.6 91.3% 63.9%; /* #4FC3F7 */
+    --surface: 222 46.9% 12.5%; /* #111A2F */
+    --surface2: 222 45.5% 17.3%; /* #182440 */
+    --teal: 180 63.5% 47.3%; /* #2CC5C5 */
+    --income: 151 65.1% 53.9%; /* #3DD68C */
+    --expense: 351.9 100% 71%; /* #FF6B7F */
+    --invest: 255.5 100% 77.3%; /* #A98BFF */
+    --border: 221.6 41.9% 22.9%; /* #223153 */
+    --input: 221.6 41.9% 22.9%; /* #223153 */
+    --ring: 222.7 69.7% 53.3%; /* #3565DB */
+    --chart-1: 212.8 76.8% 56.1%; /* #3987E5 */
+    --chart-2: 17.1 70.2% 50%; /* #D95926 */
+    --chart-3: 159.2 72.7% 35.9%; /* #199E70 */
+    --chart-4: 39.7 100% 39.4%; /* #C98500 */
+    --chart-5: 338.2 61.1% 57.6%; /* #D55181 */
+    --chart-6: 120 100% 25.7%; /* #008300 */
+    --chart-income: 158.5 73.3% 39.6%; /* #1BAF7A */
+    --chart-expense: 0.4 56.1% 51.8%; /* #C9403F */
+    --chart-trend: 223.1 100% 76.3%; /* #86A8FF */
+    --sidebar-background: 222 46.9% 12.5%; /* #111A2F */
+    --sidebar-foreground: 220 54.5% 95.7%; /* #EEF2FA */
+    --sidebar-primary: 222.7 69.7% 53.3%; /* #3565DB */
+    --sidebar-primary-foreground: 0 0% 100%; /* #FFFFFF */
+    --sidebar-accent: 222 45.5% 17.3%; /* #182440 */
+    --sidebar-accent-foreground: 220 54.5% 95.7%; /* #EEF2FA */
+    --sidebar-border: 221.6 41.9% 22.9%; /* #223153 */
+    --sidebar-ring: 222.7 69.7% 53.3%; /* #3565DB */
+    --wordmark-nex: 220 54.5% 95.7%; /* #EEF2FA */
+    --wordmark-finance: 196.5 84.5% 62%; /* #4CC3F0 */
+    --shadow-card: none;
+    --shadow-floating: 0 12px 32px rgba(0, 0, 0, 0.45);
   }
+  /* </paleta> */
 }
 
 @layer base {
@@ -108,39 +125,53 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Títulos e valores em Sora, a família geométrica da marca (como no app). */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display), ui-sans-serif, system-ui, sans-serif;
+    letter-spacing: -0.01em;
+  }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
-  
+
+  /* Números alinhados em colunas (valores em tabelas e cartões). */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Superfície de conteúdo, igual ao cartão do app: sólida, com sombra leve no claro;
+     no escuro a separação vem da cor da superfície (sombra some sobre fundo escuro). */
   .glass-panel {
-    background-color: hsl(var(--card) / 0.6);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid hsl(var(--border) / 0.5);
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    background-color: hsl(var(--card));
+    box-shadow: var(--shadow-card);
   }
-  
-  .dark .glass-panel {
-    background-color: hsl(var(--card) / 0.4);
-    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-  }
-  
+
+  /* Superfícies que flutuam sobre o conteúdo (menus, barras fixas). */
   .glass-panel-heavy {
-    background-color: hsl(var(--background) / 0.8);
-    backdrop-filter: blur(40px);
-    -webkit-backdrop-filter: blur(40px);
-    border: 1px solid hsl(var(--border) / 0.3);
+    background-color: hsl(var(--card) / 0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid hsl(var(--border));
+    box-shadow: var(--shadow-floating);
     padding-bottom: env(safe-area-inset-bottom);
   }
 
-  .dark .glass-panel-heavy {
-    background-color: rgba(11, 12, 16, 0.8);
-  }
-  
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Gradiente da sigla NF — só em peças decorativas (logo, botão "+"), nunca atrás de texto pequeno. */
+  .bg-brand-gradient {
+    background-image: linear-gradient(135deg, #1d4fc4, #0fa3a3);
+  }
+
+  /* Versão mais profunda, para superfícies com texto branco (cartão de saldo). */
+  .bg-hero-gradient {
+    background-image: linear-gradient(135deg, #1d4fc4, #0b6e80);
   }
 }

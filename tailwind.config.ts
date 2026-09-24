@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss'
+import tailwindcssAnimate from 'tailwindcss-animate'
 
 const config: Config = {
   darkMode: ['class'],
@@ -10,11 +11,36 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      // Corpo na fonte do sistema e títulos/valores em Sora, como no app.
       fontFamily: {
-        sans: ['var(--font-sans)'],
-        display: ['var(--font-display)'],
+        sans: ['ui-sans-serif', 'system-ui', '-apple-system', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+        display: ['var(--font-display)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+      },
+      // Texto na cor da marca usa a versão clara no escuro (contraste ≥ 4.5:1); o fundo dos
+      // botões (bg-primary) continua no azul da marca, com texto branco.
+      textColor: {
+        primary: {
+          DEFAULT: 'hsl(var(--primary-soft))',
+          foreground: 'hsl(var(--primary-foreground))',
+        },
+      },
+      boxShadow: {
+        card: 'var(--shadow-card)',
+        floating: 'var(--shadow-floating)',
       },
       colors: {
+        // Cores do app (nexfinance-mobile/src/theme/palette.ts), geradas em app/globals.css.
+        surface: 'hsl(var(--surface))',
+        surface2: 'hsl(var(--surface2))',
+        income: 'hsl(var(--income))',
+        expense: 'hsl(var(--expense))',
+        invest: 'hsl(var(--invest))',
+        info: 'hsl(var(--info))',
+        teal: 'hsl(var(--teal))',
+        wordmark: {
+          nex: 'hsl(var(--wordmark-nex))',
+          finance: 'hsl(var(--wordmark-finance))',
+        },
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {
@@ -28,6 +54,7 @@ const config: Config = {
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
+          soft: 'hsl(var(--primary-soft))',
         },
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',
@@ -62,6 +89,10 @@ const config: Config = {
           '3': 'hsl(var(--chart-3))',
           '4': 'hsl(var(--chart-4))',
           '5': 'hsl(var(--chart-5))',
+          '6': 'hsl(var(--chart-6))',
+          income: 'hsl(var(--chart-income))',
+          expense: 'hsl(var(--chart-expense))',
+          trend: 'hsl(var(--chart-trend))',
         },
         sidebar: {
           DEFAULT: 'hsl(var(--sidebar-background))',
@@ -103,6 +134,6 @@ const config: Config = {
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [tailwindcssAnimate],
 }
 export default config

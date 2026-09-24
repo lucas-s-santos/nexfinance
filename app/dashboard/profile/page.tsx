@@ -1,6 +1,7 @@
 "use client"
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react"
+import { Suspense, useEffect, useMemo, useState } from "react"
+import { useTheme } from "next-themes"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -18,12 +19,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import {
-  applySystemColor,
-  DEFAULT_SYSTEM_COLOR,
-  normalizeHex,
-} from "@/lib/theme"
-import { Palette, ShieldCheck, Sparkles, UserCircle2 } from "lucide-react"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { Monitor, Moon, ShieldCheck, Sparkles, Sun, UserCircle2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 
@@ -41,10 +38,11 @@ export default function ProfilePage() {
   const [deleting, setDeleting] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState("")
 
-  const [accentHex, setAccentHex] = useState(DEFAULT_SYSTEM_COLOR)
-  const [customHex, setCustomHex] = useState(DEFAULT_SYSTEM_COLOR)
-  const [colorSaving, setColorSaving] = useState(false)
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Aparência igual à do app: automático (acompanha o sistema), claro ou escuro.
+  const { theme, setTheme } = useTheme()
+  const [themeReady, setThemeReady] = useState(false)
+  useEffect(() => setThemeReady(true), [])
+  const themeLabel = theme === "light" ? "Claro" : theme === "dark" ? "Escuro" : "Automático"
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -54,7 +52,6 @@ export default function ProfilePage() {
       } = await supabase.auth.getUser()
 
       if (!user) {
-        applySystemColor(DEFAULT_SYSTEM_COLOR)
         setLoading(false)
         return
       }
@@ -65,26 +62,16 @@ export default function ProfilePage() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("display_name, accent_color")
+        .select("display_name")
         .eq("id", user.id)
         .single()
 
-      const initial =
-        normalizeHex(profile?.accent_color ?? "") ?? DEFAULT_SYSTEM_COLOR
       setDisplayName(profile?.display_name ?? null)
       setDisplayNameEdit(profile?.display_name ?? "")
-      setAccentHex(initial)
-      setCustomHex(initial)
-      applySystemColor(initial)
       setLoading(false)
     }
 
     loadProfile()
-    return () => {
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current)
-      }
-    }
   }, [])
 
   const handleSaveName = async () => {
@@ -120,50 +107,6 @@ export default function ProfilePage() {
     return new Intl.DateTimeFormat("pt-BR", { dateStyle: "long" }).format(date)
   }, [createdAt])
 
-  const scheduleColorSave = (value: string) => {
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current)
-    }
-    setColorSaving(true)
-    saveTimerRef.current = setTimeout(async () => {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) {
-        setColorSaving(false)
-        return
-      }
-      await supabase
-        .from("profiles")
-        .update({ accent_color: value, updated_at: new Date().toISOString() })
-        .eq("id", user.id)
-      setColorSaving(false)
-    }, 600)
-  }
-
-  const handleAccentChange = (value: string) => {
-    const normalized = normalizeHex(value)
-    if (!normalized) return
-    setAccentHex(normalized)
-    setCustomHex(normalized)
-    applySystemColor(normalized)
-    scheduleColorSave(normalized)
-  }
-
-  const handleCustomApply = () => {
-    const normalized = normalizeHex(customHex)
-    if (!normalized) return
-    handleAccentChange(normalized)
-  }
-
-  const handleReset = () => {
-    setAccentHex(DEFAULT_SYSTEM_COLOR)
-    setCustomHex(DEFAULT_SYSTEM_COLOR)
-    applySystemColor(DEFAULT_SYSTEM_COLOR)
-    scheduleColorSave(DEFAULT_SYSTEM_COLOR)
-  }
-
   const handleDeleteAccount = async () => {
     setDeleting(true)
     try {
@@ -187,15 +130,6 @@ export default function ProfilePage() {
       setDeleteOpen(false)
     }
   }
-
-  const quickColors = [
-    DEFAULT_SYSTEM_COLOR,
-    "#06b6d4",
-    "#22c55e",
-    "#f59e0b",
-    "#ef4444",
-    "#a855f7",
-  ]
 
   return (
     <div className="flex flex-col gap-6">
@@ -224,8 +158,8 @@ export default function ProfilePage() {
         </div>
         <div className="relative z-10 mt-5 grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-border/60 bg-background/40 p-3">
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Tema atual</p>
-            <p className="text-sm font-semibold text-foreground">{accentHex}</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Aparência</p>
+            <p className="text-sm font-semibold text-foreground">{themeReady ? themeLabel : "—"}</p>
           </div>
           <div className="rounded-2xl border border-border/60 bg-background/40 p-3">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Notificacoes</p>
@@ -329,63 +263,37 @@ export default function ProfilePage() {
         </Card>
       </div>
 
-      <Card className="border-border/60 bg-card/60">
+      <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Palette className="h-4 w-4 text-primary" />
-            Personalizacao de cores
-          </CardTitle>
+          <CardTitle className="text-base">Aparência</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                aria-label="Selecionar cor"
-                value={accentHex}
-                onChange={(e) => handleAccentChange(e.target.value)}
-                className="h-10 w-14 cursor-pointer rounded-md border border-input bg-background p-1"
-              />
-              <div>
-                <p className="text-sm font-medium text-foreground">Cor atual</p>
-                <p className="text-xs text-muted-foreground">{accentHex}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {quickColors.map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => handleAccentChange(color)}
-                  className="h-8 w-8 rounded-full border border-border"
-                  style={{ backgroundColor: color }}
-                  aria-label={`Selecionar ${color}`}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className="grid gap-2 md:grid-cols-[1fr_auto_auto] md:items-end">
-            <div className="grid gap-2">
-              <Label htmlFor="custom-color">Digite um hex</Label>
-              <Input
-                id="custom-color"
-                value={customHex}
-                onChange={(e) => setCustomHex(e.target.value)}
-                placeholder="#16c79a"
-              />
-            </div>
-            <Button variant="outline" onClick={handleCustomApply}>
-              Aplicar
-            </Button>
-            <Button variant="ghost" onClick={handleReset}>
-              Restaurar
-            </Button>
-          </div>
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-            <span>Dica: use o formato #RRGGBB para cores personalizadas.</span>
-            <span>{colorSaving ? "Salvando cor..." : "Cor sincronizada"}</span>
-          </div>
+        <CardContent className="flex flex-col gap-3">
+          {themeReady ? (
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              className="justify-start"
+              value={theme ?? "system"}
+              onValueChange={(v) => v && setTheme(v)}
+              aria-label="Aparência do NexFinance"
+            >
+              <ToggleGroupItem value="system">
+                <Monitor />
+                Automático
+              </ToggleGroupItem>
+              <ToggleGroupItem value="light">
+                <Sun />
+                Claro
+              </ToggleGroupItem>
+              <ToggleGroupItem value="dark">
+                <Moon />
+                Escuro
+              </ToggleGroupItem>
+            </ToggleGroup>
+          ) : (
+            <div className="h-10" />
+          )}
+          <p className="text-xs text-muted-foreground">No automático, o NexFinance acompanha o tema do seu computador ou celular.</p>
         </CardContent>
       </Card>
 

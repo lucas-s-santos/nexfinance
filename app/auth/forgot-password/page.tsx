@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useState } from "react"
 import { ArrowRight, CheckCircle } from "lucide-react"
+import { Wordmark } from "@/components/brand/brand"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -48,11 +49,7 @@ export default function ForgotPasswordPage() {
       <div className="flex min-h-svh w-full items-start justify-center bg-gradient-to-b from-background to-muted/30 px-4 py-10 sm:items-center sm:px-6 sm:py-12">
         <div className="w-full max-w-sm sm:max-w-md">
           <div className="mb-6 flex items-center justify-center sm:mb-8">
-            <img
-              src="/logo01.jpg"
-              alt="NexFinance"
-              className="h-16 w-auto sm:h-20"
-            />
+            <Wordmark size={44} stacked tagline />
           </div>
           <Card className="glass-panel border-0 shadow-sm">
             <CardHeader>
@@ -92,11 +89,7 @@ export default function ForgotPasswordPage() {
     <div className="flex min-h-svh w-full items-start justify-center bg-gradient-to-b from-background to-muted/30 px-4 py-10 sm:items-center sm:px-6 sm:py-12">
       <div className="w-full max-w-sm sm:max-w-md">
         <div className="mb-6 flex items-center justify-center sm:mb-8">
-          <img
-            src="/logo01.jpg"
-            alt="NexFinance"
-            className="h-16 w-auto sm:h-20"
-          />
+          <Wordmark size={44} stacked tagline />
         </div>
         <Card className="glass-panel border-0 shadow-sm">
           <CardHeader>

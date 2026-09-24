@@ -41,7 +41,7 @@ export default function HomePage() {
           className="flex items-center gap-3"
         >
           <div className="relative flex h-12 w-12 items-center justify-center rounded-xl overflow-hidden shadow-lg shadow-primary/30 border border-border/50 bg-white">
-            <img src="/logo01.jpg" alt="NexFinance Logo" className="h-full w-full object-cover" />
+            <img src="/brand-mark.png" alt="NexFinance" className="h-full w-full object-contain p-1" />
           </div>
           <div>
             <p className="text-sm font-bold tracking-[0.2em] text-foreground uppercase">
@@ -223,7 +223,7 @@ export default function HomePage() {
         <div className="mx-auto flex w-full max-w-7xl flex-col sm:flex-row items-center justify-between gap-6 px-6">
           <div className="flex items-center gap-3">
             <div className="relative flex h-8 w-8 items-center justify-center rounded-lg overflow-hidden border border-white/10 bg-white">
-              <img src="/logo01.jpg" alt="NexFinance Logo" className="h-full w-full object-cover" />
+              <img src="/brand-mark.png" alt="NexFinance" className="h-full w-full object-contain p-1" />
             </div>
             <span className="font-display font-bold text-foreground">NexFinance</span>
           </div>

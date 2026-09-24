@@ -70,7 +70,7 @@ export default function SignUpPage() {
         >
           <span className="font-display text-2xl font-bold tracking-wide text-white">NexFinance</span>
           <div className="relative flex h-12 w-12 items-center justify-center rounded-xl overflow-hidden shadow-lg shadow-primary/30 border border-white/10 bg-white">
-            <img src="/logo01.jpg" alt="NexFinance Logo" className="h-full w-full object-cover" />
+            <img src="/brand-mark.png" alt="NexFinance" className="h-full w-full object-contain p-1" />
           </div>
         </motion.div>
 

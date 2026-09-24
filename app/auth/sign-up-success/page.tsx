@@ -8,6 +8,7 @@ import {
 import { BadgeCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { Wordmark } from "@/components/brand/brand"
 
 export default function SignUpSuccessPage() {
   return (
@@ -15,14 +16,7 @@ export default function SignUpSuccessPage() {
       <div className="w-full max-w-sm sm:max-w-md">
         <div className="flex flex-col gap-6">
           <div className="flex items-center justify-center gap-3">
-            <img
-              src="/logo01.jpg"
-              alt="NexFinance"
-              className="h-8 w-auto sm:h-9"
-            />
-            <span className="text-lg font-semibold text-foreground sm:text-xl">
-              NexFinance
-            </span>
+            <Wordmark size={36} />
           </div>
           <Card className="glass-panel border-0 shadow-sm">
             <CardHeader className="text-center">
