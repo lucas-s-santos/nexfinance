@@ -184,12 +184,15 @@ export default function IncomesPage() {
         transferPayload.payment_method = "debit"
         transferPayload.is_essential = false
       } else if (form.type === "investment") {
+        // Receita que vira investimento é dinheiro que voltou do investimento: resgate, gravado
+        // negativo (igual ao app e à importação de extratos).
         transferPayload.type = "investment"
+        transferPayload.value = -Math.abs(parsedValue)
       }
-      
+
       const { error } = await supabase.from(newTable).insert(transferPayload)
       if (error) toast.error("Erro ao alterar tipo de transação")
-      else toast.success(`Transformado em ${form.type === 'expense' ? 'despesa' : 'investimento'}`)
+      else toast.success(`Transformado em ${form.type === 'expense' ? 'despesa' : 'resgate de investimento'}`)
 
     } else if (editId) {
       const { error } = await supabase

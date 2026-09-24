@@ -1,3 +1,4 @@
+// Mesmo código do app (nexfinance-mobile/src/lib/ofx.ts). Mantenha os dois iguais.
 export type OfxTransaction = {
   date: string
   amount: number
@@ -31,23 +32,24 @@ function parseOfxAmount(raw: string): number {
 
 export function parseOfx(content: string): OfxTransaction[] {
   const blocks = content.split(/<STMTTRN>/i).slice(1)
-  return blocks
-    .map((block) => {
-      const date = parseOfxDate(extractValue(block, "DTPOSTED"))
-      const amount = parseOfxAmount(extractValue(block, "TRNAMT"))
-      const rawName = extractValue(block, "NAME")
-      const rawMemo = extractValue(block, "MEMO")
-      const fitid = extractValue(block, "FITID")
+  const out: OfxTransaction[] = []
 
-      const name = rawName || rawMemo
-      const memoParts = []
-      if (rawName && rawMemo && rawName !== rawMemo) memoParts.push(rawMemo)
-      if (fitid) memoParts.push(`FitID: ${fitid}`)
+  for (const block of blocks) {
+    const date = parseOfxDate(extractValue(block, "DTPOSTED"))
+    const amount = parseOfxAmount(extractValue(block, "TRNAMT"))
+    const rawName = extractValue(block, "NAME")
+    const rawMemo = extractValue(block, "MEMO")
+    const fitid = extractValue(block, "FITID")
 
-      const memo = memoParts.join(" | ") || undefined
+    const name = rawName || rawMemo
+    const memoParts = []
+    if (rawName && rawMemo && rawName !== rawMemo) memoParts.push(rawMemo)
+    if (fitid) memoParts.push(`FitID: ${fitid}`)
+    const memo = memoParts.join(" | ") || undefined
 
-      if (!date || Number.isNaN(amount) || !name) return null
-      return { date, amount, name, memo }
-    })
-    .filter((t): t is OfxTransaction => Boolean(t))
+    if (!date || Number.isNaN(amount) || !name) continue
+    out.push({ date, amount, name, memo })
+  }
+
+  return out
 }

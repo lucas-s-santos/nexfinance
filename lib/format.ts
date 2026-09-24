@@ -15,7 +15,7 @@ export function formatDate(date: string): string {
 export const MONTHS = [
   "Janeiro",
   "Fevereiro",
-  "Marco",
+  "Março",
   "Abril",
   "Maio",
   "Junho",
@@ -28,15 +28,15 @@ export const MONTHS = [
 ]
 
 export const PAYMENT_METHODS: Record<string, string> = {
-  credit: "Cartao de Credito",
-  debit: "Cartao de Debito",
-  voucher: "Vale Refeicao",
+  credit: "Cartão de crédito",
+  debit: "Cartão de débito",
+  voucher: "Vale-refeição",
   pix: "Pix",
   cash: "Dinheiro",
 }
 
 export const RESERVE_TYPES: Record<string, string> = {
-  emergency: "Reserva de Emergencia",
+  emergency: "Reserva de emergência",
   investment: "Investimento",
   market: "Carteira (FII/Cripto)",
   goal: "Meta",

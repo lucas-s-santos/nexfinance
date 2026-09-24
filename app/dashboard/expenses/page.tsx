@@ -202,12 +202,14 @@ export default function ExpensesPage() {
         transferPayload.period_id = periodId
         transferPayload.category_id = form.category_id || null
       } else if (form.type === "investment") {
+        // Despesa que vira investimento é dinheiro que saiu da conta para investir: aplicação, positiva.
         transferPayload.type = "investment"
+        transferPayload.value = Math.abs(parsedValue)
       }
-      
+
       const { error } = await supabase.from(newTable).insert(transferPayload)
       if (error) toast.error("Erro ao alterar tipo de transação")
-      else toast.success(`Transformado em ${form.type === 'income' ? 'receita' : 'investimento'}`)
+      else toast.success(`Transformado em ${form.type === 'income' ? 'receita' : 'aplicação em investimento'}`)
       
     } else if (editId) {
       const { error } = await supabase

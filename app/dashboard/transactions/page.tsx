@@ -161,12 +161,17 @@ export default function TransactionsPage() {
     }
 
     const newTable = editForm.type === "income" ? "incomes" : editForm.type === "investment" ? "reserves_investments" : "expenses"
+    // Investimento guarda a direção no sinal: resgate negativo (igual ao app). Uma receita
+    // convertida em investimento é dinheiro que voltou para a conta (resgate); uma despesa, uma aplicação.
+    const amount = Math.abs(parsedValue)
+    const wasWithdraw = editingTx.table === "reserves_investments" ? editingTx.value < 0 : editingTx.type === "income"
+    const storedValue = newTable === "reserves_investments" && wasWithdraw ? -amount : amount
 
     if (newTable === editingTx.table) {
       // Simple update
       const updatePayload: any = {
         name: editForm.name,
-        value: parsedValue,
+        value: storedValue,
         date: editForm.date,
       }
       
@@ -189,7 +194,7 @@ export default function TransactionsPage() {
         setTransactions((prev) =>
           prev.map((t) =>
             t.id === editingTx.id
-              ? { ...t, name: editForm.name, value: parsedValue, date: editForm.date, categoryId: editForm.categoryId || undefined, method: editForm.method || undefined }
+              ? { ...t, name: editForm.name, value: storedValue, date: editForm.date, categoryId: editForm.categoryId || undefined, method: editForm.method || undefined }
               : t
           )
         )
@@ -220,7 +225,7 @@ export default function TransactionsPage() {
       const payload: any = {
         user_id: user.id,
         name: editForm.name,
-        value: parsedValue,
+        value: storedValue,
         date: editForm.date
       }
 
@@ -246,7 +251,7 @@ export default function TransactionsPage() {
         setTransactions((prev) =>
           prev.map((t) =>
             t.id === editingTx.id
-              ? { ...t, id: insertedId, name: editForm.name, value: parsedValue, date: editForm.date, type: editForm.type, table: newTable, categoryId: editForm.categoryId || undefined, method: editForm.method || undefined }
+              ? { ...t, id: insertedId, name: editForm.name, value: storedValue, date: editForm.date, type: editForm.type, table: newTable, categoryId: editForm.categoryId || undefined, method: editForm.method || undefined }
               : t
           )
         )
@@ -260,7 +265,7 @@ export default function TransactionsPage() {
 
   const openEdit = (tx: UnifiedTransaction) => {
     setEditingTx(tx)
-    setEditForm({ name: tx.name, value: String(tx.value), date: tx.date, type: tx.type, categoryId: tx.categoryId || "", method: tx.method || "" })
+    setEditForm({ name: tx.name, value: String(Math.abs(tx.value)), date: tx.date, type: tx.type, categoryId: tx.categoryId || "", method: tx.method || "" })
     setEditOpen(true)
   }
 
@@ -427,12 +432,14 @@ export default function TransactionsPage() {
                         <div className="flex items-center gap-2">
                           {getTypeIcon(tx.type)}
                           <span className="capitalize text-sm font-medium">
-                            {tx.type === "income" ? "Receita" : tx.type === "expense" ? "Despesa" : "Investimento"}
+                            {tx.type === "income" ? "Receita" : tx.type === "expense" ? "Despesa" : tx.value < 0 ? "Resgate" : "Aplicação"}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell className={`text-right font-bold ${tx.type === "income" ? "text-success" : tx.type === "expense" ? "text-destructive" : "text-primary"}`}>
-                        {tx.type === "expense" ? "- " : "+ "}{formatCurrency(tx.value)}
+                        {/* Visão da conta: aplicação (valor positivo) saiu; resgate (negativo) voltou. */}
+                        {tx.type === "expense" || (tx.type === "investment" && tx.value > 0) ? "− " : "+ "}
+                        {formatCurrency(Math.abs(tx.value))}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">

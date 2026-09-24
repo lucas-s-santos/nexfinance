@@ -11,18 +11,37 @@ import { createClient } from "@/lib/supabase/server"
 const MAX_BYTES = 10 * 1024 * 1024
 const MAX_SECONDS = 30
 
+// O app (celular e a versão web dele, em outro endereço) chama esta rota com o token
+// da sessão no cabeçalho Authorization; o site chama com o cookie de login. Sem cookie
+// na conta do CORS, liberar qualquer origem não abre nada: sem token válido, não passa.
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+}
+
+const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: CORS })
+
+export function OPTIONS() {
+  return new Response(null, { status: 204, headers: CORS })
+}
+
+async function currentUser(req: Request) {
+  const supabase = await createClient()
+  const header = req.headers.get("authorization") ?? ""
+  const token = header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : ""
+  const { data } = token ? await supabase.auth.getUser(token) : await supabase.auth.getUser()
+  return data.user
+}
+
 export async function POST(req: Request) {
   // Só quem está logado usa o servidor para ler PDF.
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: "Nao autorizado" }, { status: 401 })
+  if (!(await currentUser(req))) {
+    return json({ error: "Nao autorizado" }, 401)
   }
 
   if (Number(req.headers.get("content-length") ?? 0) > MAX_BYTES + 64 * 1024) {
-    return NextResponse.json({ error: "O PDF passa de 10 MB" }, { status: 413 })
+    return json({ error: "O PDF passa de 10 MB" }, 413)
   }
 
   try {
@@ -30,15 +49,15 @@ export async function POST(req: Request) {
     const file = formData.get("file")
 
     if (!file || typeof file === "string") {
-      return NextResponse.json({ error: "Nenhum arquivo enviado" }, { status: 400 })
+      return json({ error: "Nenhum arquivo enviado" }, 400)
     }
     if (file.size > MAX_BYTES) {
-      return NextResponse.json({ error: "O PDF passa de 10 MB" }, { status: 413 })
+      return json({ error: "O PDF passa de 10 MB" }, 413)
     }
 
     const buffer = Buffer.from(await file.arrayBuffer())
     if (!buffer.subarray(0, 1024).includes("%PDF-")) {
-      return NextResponse.json({ error: "O arquivo nao e um PDF" }, { status: 400 })
+      return json({ error: "O arquivo nao e um PDF" }, 400)
     }
 
     // Salva o buffer em um arquivo temporário (nome aleatório: envios ao mesmo tempo não se misturam)
@@ -57,9 +76,9 @@ export async function POST(req: Request) {
        }
     }
 
-    return NextResponse.json({ text })
+    return json({ text })
   } catch (error: any) {
     console.error("Erro ao analisar o PDF via child process:", error)
-    return NextResponse.json({ error: "Erro ao converter o PDF em texto." }, { status: 500 })
+    return json({ error: "Erro ao converter o PDF em texto." }, 500)
   }
 }

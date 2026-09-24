@@ -109,25 +109,3 @@ export const budgetSchema = z.object({
   year: z.number().min(2000),
   limit_value: z.number().positive("Limite deve ser positivo"),
 })
-
-// ===== IMPORT BATCH SCHEMA =====
-
-export type ImportTransactionPayload = z.infer<typeof ImportTransactionSchema>
-
-const ImportTransactionSchema = z.object({
-  type: z.enum(["income", "expense", "investment"], {
-    errorMap: () => ({ message: "Tipo deve ser income, expense ou investment" }),
-  }),
-  name: z.string().min(1, "Nome da transacao e obrigatorio").max(255).trim(),
-  value: z.number().positive("Valor deve ser positivo").max(999999999),
-  date: z.string().min(1, "Data invalida").regex(/^\d{4}-\d{2}-\d{2}$/, "Formato: YYYY-MM-DD"),
-  category_id: z.string().optional(),
-  payment_method: z.enum(["credit", "debit", "pix", "cash", "voucher"]).optional(),
-  is_essential: z.boolean().default(false),
-})
-
-export const importBatchSchema = z.object({
-  transactions: z.array(ImportTransactionSchema).min(1, "Nenhuma transacao valida").max(2000),
-  fileName: z.string().optional(),
-  source: z.enum(["ofx", "csv", "pdf"]).optional(),
-})

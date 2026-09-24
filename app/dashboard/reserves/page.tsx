@@ -33,17 +33,23 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { CrudDialog } from "@/components/dashboard/crud-dialog"
 import { DeleteDialog } from "@/components/dashboard/delete-dialog"
 import { Plus, Pencil, Trash2, Landmark } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { MobileCards } from "@/components/dashboard/mobile-cards"
 
+// Aplicação grava valor positivo; resgate (dinheiro que volta para a conta) grava negativo —
+// igual ao app e à importação de extratos.
+type Movement = "deposit" | "withdraw"
+
 interface ReserveForm {
   name: string
   type: string
   value: string
   date: string
+  movement: Movement
 }
 
 const emptyForm: ReserveForm = {
@@ -51,7 +57,10 @@ const emptyForm: ReserveForm = {
   type: "emergency",
   value: "",
   date: new Date().toISOString().slice(0, 10),
+  movement: "deposit",
 }
+
+const movementLabel = (value: number) => (value < 0 ? "Resgate" : "Aplicação")
 
 export default function ReservesPage() {
   const { data: reserves, isLoading } = useReserves()
@@ -87,8 +96,9 @@ export default function ReservesPage() {
     setForm({
       name: reserve.name,
       type: reserve.type,
-      value: String(reserve.value),
+      value: String(Math.abs(Number(reserve.value))),
       date: reserve.date,
+      movement: Number(reserve.value) < 0 ? "withdraw" : "deposit",
     })
     setEditId(reserve.id)
     setDialogOpen(true)
@@ -131,7 +141,7 @@ export default function ReservesPage() {
       user_id: user.id,
       name: form.name,
       type: form.type,
-      value: parsedValue,
+      value: form.movement === "withdraw" ? -parsedValue : parsedValue,
       date: form.date,
     }
 
@@ -140,14 +150,14 @@ export default function ReservesPage() {
         .from("reserves_investments")
         .update(payload)
         .eq("id", editId)
-      if (error) toast.error("Erro ao atualizar")
-      else toast.success("Reserva atualizada")
+      if (error) toast.error("Não foi possível atualizar")
+      else toast.success("Movimentação atualizada")
     } else {
       const { error } = await supabase
         .from("reserves_investments")
         .insert(payload)
-      if (error) toast.error("Erro ao criar")
-      else toast.success("Reserva criada")
+      if (error) toast.error("Não foi possível salvar")
+      else toast.success(form.movement === "withdraw" ? "Resgate registrado" : "Aplicação registrada")
     }
 
     setSaving(false)
@@ -184,7 +194,7 @@ export default function ReservesPage() {
         </div>
         <Button onClick={openNew}>
           <Plus className="mr-2 h-4 w-4" />
-          Nova Reserva
+          Nova movimentação
         </Button>
       </div>
 
@@ -272,15 +282,19 @@ export default function ReservesPage() {
                   items={(reserves ?? []).map((reserve) => ({
                     id: reserve.id,
                     name: reserve.name,
-                    value: Number(reserve.value),
+                    value: Math.abs(Number(reserve.value)),
                     date: reserve.date,
                     badges: [
+                      {
+                        label: movementLabel(Number(reserve.value)),
+                        variant: "outline",
+                      },
                       {
                         label: RESERVE_TYPES[reserve.type],
                         variant: "secondary",
                       },
                     ],
-                    valueColor: "text-primary",
+                    valueColor: Number(reserve.value) < 0 ? "text-success" : "text-primary",
                   }))}
                   onEdit={(id) => {
                     const reserve = (reserves ?? []).find((r) => r.id === id)
@@ -310,13 +324,20 @@ export default function ReservesPage() {
                           {reserve.name}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary">
-                            {RESERVE_TYPES[reserve.type]}
-                          </Badge>
+                          <div className="flex flex-wrap gap-1">
+                            <Badge variant="outline">
+                              {movementLabel(Number(reserve.value))}
+                            </Badge>
+                            <Badge variant="secondary">
+                              {RESERVE_TYPES[reserve.type]}
+                            </Badge>
+                          </div>
                         </TableCell>
                         <TableCell>{formatDate(reserve.date)}</TableCell>
-                        <TableCell className="text-right font-medium text-primary">
-                          {formatCurrency(Number(reserve.value))}
+                        <TableCell
+                          className={`text-right font-medium ${Number(reserve.value) < 0 ? "text-success" : "text-primary"}`}
+                        >
+                          {formatCurrency(Math.abs(Number(reserve.value)))}
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
@@ -357,10 +378,29 @@ export default function ReservesPage() {
       <CrudDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        title={editId ? "Editar Reserva" : "Nova Reserva"}
+        title={editId ? "Editar movimentação" : "Nova movimentação"}
         onSubmit={handleSubmit}
         isLoading={saving}
       >
+        <div className="grid gap-2">
+          <Label>Movimento</Label>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            className="justify-start"
+            value={form.movement}
+            onValueChange={(v) => v && setForm({ ...form, movement: v as Movement })}
+            aria-label="Movimento"
+          >
+            <ToggleGroupItem value="deposit">Aplicar</ToggleGroupItem>
+            <ToggleGroupItem value="withdraw">Resgatar</ToggleGroupItem>
+          </ToggleGroup>
+          <p className="text-xs text-muted-foreground">
+            {form.movement === "withdraw"
+              ? "O dinheiro sai do investimento e volta para a conta."
+              : "O dinheiro sai da conta e vai para o investimento."}
+          </p>
+        </div>
         <div className="grid gap-2">
           <Label htmlFor="name">Nome</Label>
           <Input
@@ -368,7 +408,7 @@ export default function ReservesPage() {
             required
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Ex: Reserva de emergencia"
+            placeholder={form.movement === "withdraw" ? "Ex.: Resgate do CDB" : "Ex.: Reserva de emergência"}
           />
         </div>
         <div className="grid gap-2">
@@ -417,7 +457,7 @@ export default function ReservesPage() {
         onOpenChange={setDeleteOpen}
         onConfirm={handleDelete}
         isLoading={saving}
-        itemName="esta reserva"
+        itemName="esta movimentação"
       />
     </div>
   )

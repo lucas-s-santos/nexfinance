@@ -1,3 +1,4 @@
+// Mesmo código do app (nexfinance-mobile/src/lib/csv.ts). Mantenha os dois iguais.
 export type CsvData = {
   headers: string[]
   rows: string[][]
@@ -52,7 +53,7 @@ export function parseCsv(content: string): CsvData {
     return { headers: [], rows: [] }
   }
 
-  const firstLine = lines[0].replace(/^\uFEFF/, "")
+  const firstLine = lines[0].replace(/^﻿/, "")
   const delimiter = detectDelimiter(firstLine)
   const headers = splitCsvLine(firstLine, delimiter).map((h) => h.trim())
   const rows = lines.slice(1).map((line) => splitCsvLine(line, delimiter))
