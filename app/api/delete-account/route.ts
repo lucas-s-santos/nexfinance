@@ -31,6 +31,26 @@ export async function POST() {
     }
   )
 
+  // Comprovantes ficam em receipts/<id do usuário>/ e não somem com o deleteUser
+  // (as tabelas somem pelo ON DELETE CASCADE). A Play Store exige apagar tudo.
+  const receipts = adminClient.storage.from("receipts")
+  while (true) {
+    const { data: files, error: listError } = await receipts.list(user.id, { limit: 1000 })
+    if (listError) {
+      console.error("delete-account: list receipts failed", listError)
+      return NextResponse.json({ error: listError.message }, { status: 500 })
+    }
+    if (!files?.length) break
+    const { data: removed, error: removeError } = await receipts.remove(
+      files.map((file) => `${user.id}/${file.name}`)
+    )
+    if (removeError) {
+      console.error("delete-account: remove receipts failed", removeError)
+      return NextResponse.json({ error: removeError.message }, { status: 500 })
+    }
+    if (!removed?.length) break
+  }
+
   const { error: deleteError } = await adminClient.auth.admin.deleteUser(
     user.id
   )
